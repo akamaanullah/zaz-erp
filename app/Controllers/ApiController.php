@@ -13,6 +13,7 @@ use App\Services\OfficeOps;
 use App\Services\PeopleOps;
 use App\Services\Snapshot;
 use App\Services\StockOps;
+use App\Services\TotpOps;
 
 final class ApiController extends Controller
 {
@@ -115,6 +116,15 @@ final class ApiController extends Controller
                 break;
             case 'settings/prefs':
                 (new OfficeOps())->prefs($user, $in);
+                break;
+            case 'totp/start':
+                $extra = (new TotpOps())->start($user);
+                break;
+            case 'totp/confirm':
+                $extra['recoveryCodes'] = (new TotpOps())->confirm($user, (string)($in['code'] ?? ''));
+                break;
+            case 'totp/disable':
+                (new TotpOps())->disable($user, (string)($in['code'] ?? ''));
                 break;
             case 'settings/import':
                 (new OfficeOps())->import($user, $in);

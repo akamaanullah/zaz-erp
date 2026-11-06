@@ -390,6 +390,76 @@ expect(isset($boot['db']) && !str_contains(json_encode($boot['db']), 'password')
 $farms = array_column($boot['db']['farms'], 'name');
 expect($farms === ['Farm A'], 'supervisor bootstrap is limited to the assigned farm');
 expect(in_array('usage', $boot['db']['access'], true) && !in_array('expenses', $boot['db']['access'], true), 'supervisor access list hides expense pages');
+expect(array_key_exists('godown', $boot['db']) && $boot['db']['godown'] === null, 'supervisor payload does not include main godown balances');
+$badImport = call(asUser($office), 'POST', '/api/settings/import', [
+    'format' => 'zaz-erp-mvc-1',
+    'db' => ['users' => [['username' => 'x']], 'farms' => []],
+]);
+expect($badImport->status === 422, 'import rejects account data');
+$idle = kernel();
+$idle->handle('POST', '/login', http_build_query([
+    'username' => 'owner',
+    'password' => $secrets['owner'],
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+Session::put('auth_seen', time() - 90000);
+expect($idle->handle('GET', '/api/bootstrap', null, ['Accept' => 'application/json'])->status === 401, 'idle session is invalidated');
+$moved = kernel();
+$moved->handle('POST', '/login', http_build_query([
+    'username' => 'owner',
+    'password' => $secrets['owner'],
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+Database::pdo()->prepare('UPDATE users SET role = ? WHERE id = ?')->execute(['office', $owner]);
+expect($moved->handle('GET', '/api/bootstrap', null, ['Accept' => 'application/json'])->status === 401, 'session ends when the stored role changes');
+Database::pdo()->prepare('UPDATE users SET role = ? WHERE id = ?')->execute(['owner', $owner]);
+putenv('ZAZ_APP_KEY=local-test-key-not-secret');
+expect(call(asUser($supA), 'POST', '/api/totp/start', [])->status === 403, 'supervisor cannot enroll an authenticator');
+$totpApp = asUser($owner);
+$started = json_decode(call($totpApp, 'POST', '/api/totp/start', [])->body, true);
+$secret = (string)($started['secret'] ?? '');
+$confirm = json_decode(call($totpApp, 'POST', '/api/totp/confirm', [
+    'code' => $secret === '' ? '' : App\Services\Totp::codeAt($secret, intdiv(time(), 30)),
+])->body, true);
+$recovery = (string)($confirm['recoveryCodes'][0] ?? '');
+$after = json_decode(call($totpApp, 'GET', '/api/bootstrap', null)->body, true);
+expect($secret !== '' && $recovery !== '' && ($after['db']['me']['totpEnabled'] ?? false) === true && !str_contains(json_encode($after), $secret) && !str_contains(json_encode($after), $recovery), 'authenticator enrolls without returning the secret again');
+$gate = kernel();
+$gateResponse = $gate->handle('POST', '/login', http_build_query([
+    'username' => 'owner',
+    'password' => $secrets['owner'],
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+expect(str_contains($gateResponse->headers['Location'] ?? '', '/login/totp') && Session::get('user_id') === null, 'password alone does not open the dashboard when authenticator is on');
+$badCode = $gate->handle('POST', '/login/totp', http_build_query([
+    'code' => '000000',
+    'recovery' => '',
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+expect($badCode->status === 302 && Session::get('user_id') === null && Session::pullFlash('error') === AuthController::GENERIC_ERROR, 'wrong authenticator code stays generic');
+$withRecovery = kernel();
+$withRecovery->handle('POST', '/login', http_build_query([
+    'username' => 'owner',
+    'password' => $secrets['owner'],
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+$done = $withRecovery->handle('POST', '/login/totp', http_build_query([
+    'recovery' => $recovery,
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+$scope = json_decode($withRecovery->handle('GET', '/api/bootstrap', null, ['Accept' => 'application/json'])->body, true);
+expect($done->status === 302 && str_contains($done->headers['Location'] ?? '', '/dashboard') && ($scope['db']['me']['role'] ?? '') === 'owner', 'recovery code completes sign-in as the stored owner');
+$reuse = kernel();
+$reuse->handle('POST', '/login', http_build_query([
+    'username' => 'owner',
+    'password' => $secrets['owner'],
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+$reuse->handle('POST', '/login/totp', http_build_query([
+    'recovery' => $recovery,
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+expect(Session::get('user_id') === null, 'a recovery code cannot be reused');
 
 try {
     Database::pdo()->exec('DELETE FROM audit_log WHERE id = 1');

@@ -11,6 +11,10 @@ if ($name !== 'zaz_agriculture') {
     fwrite(STDERR, "Refusing to seed database '{$name}'.\n");
     exit(1);
 }
+if ((config()['app']['env'] ?? 'local') !== 'local') {
+    fwrite(STDERR, "Seed runs only when ZAZ_APP_ENV=local.\n");
+    exit(1);
+}
 
 $seeded = (new App\Services\DemoSeeder())->seedIfEmpty();
 if ($seeded) {

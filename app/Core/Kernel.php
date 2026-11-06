@@ -63,7 +63,23 @@ final class Kernel
         }
         $user = UserModel::find((int)$id);
         if (!$user || !(int)$user['is_active']) {
+            Session::destroy();
             return null;
+        }
+        $idle = (int)(config()['app']['session_idle_seconds'] ?? 28800);
+        $seen = Session::get('auth_seen');
+        if ($seen !== null && (time() - (int)$seen) > $idle) {
+            Session::destroy();
+            return null;
+        }
+        $boundRole = Session::get('auth_role');
+        $boundFarm = Session::get('auth_farm_id');
+        if (is_string($boundRole) && ($boundRole !== (string)$user['role'] || (int)$boundFarm !== (int)($user['farm_id'] ?? 0))) {
+            Session::destroy();
+            return null;
+        }
+        if (is_string($boundRole)) {
+            Session::put('auth_seen', time());
         }
         $user['farm_name'] = '';
         if (!empty($user['farm_id'])) {

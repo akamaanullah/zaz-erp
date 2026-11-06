@@ -34,9 +34,9 @@ const getHari=id=>(db.haris||[]).find(h=>String(h.id)===String(id));
 const category=name=>(db.categories||[]).find(c=>c.name===name);
 const kgOf=(unit,w)=>unit==='maund'?Number(w)*MAUND_KG:Number(w);
 const rate=item=>{if(db.itemRates&&db.itemRates[item]!=null)return Number(db.itemRates[item]);const rs=(db.receipts||[]).filter(x=>x.item===item);return rs.length?Number(rs[rs.length-1].rate):0};
-const godownReceived=item=>db.godown&&db.godown[item]?Number(db.godown[item].received):(db.receipts||[]).filter(x=>x.item===item).reduce((s,x)=>s+Number(x.qty),0);
-const godownSent=item=>db.godown&&db.godown[item]?Number(db.godown[item].sent):(db.transfers||[]).filter(x=>x.item===item).reduce((s,x)=>s+Number(x.qty),0);
-const godownQty=item=>db.godown&&db.godown[item]?Number(db.godown[item].available):godownReceived(item)-godownSent(item);
+const godownReceived=item=>db.godown&&db.godown[item]?Number(db.godown[item].received):0;
+const godownSent=item=>db.godown&&db.godown[item]?Number(db.godown[item].sent):0;
+const godownQty=item=>db.godown&&db.godown[item]?Number(db.godown[item].available):0;
 const farmQty=(farm,item)=>(db.transfers||[]).filter(x=>x.farm===farm&&x.item===item&&x.received!=null).reduce((s,x)=>s+Number(x.received),0)-(db.usage||[]).filter(x=>x.farm===farm&&x.item===item).reduce((s,x)=>s+Number(x.qty),0);
 function stockByFarm(item){return farmNames().map(f=>{const rec=(db.transfers||[]).filter(x=>x.farm===f&&x.item===item&&x.received!=null).reduce((s,x)=>s+Number(x.received),0),sent=(db.transfers||[]).filter(x=>x.farm===f&&x.item===item).reduce((s,x)=>s+Number(x.qty),0),used=(db.usage||[]).filter(x=>x.farm===f&&x.item===item).reduce((s,x)=>s+Number(x.qty),0);return {farm:f,sent,received:rec,used,left:rec-used,cost:(db.usage||[]).filter(x=>x.farm===f&&x.item===item).reduce((s,x)=>s+Number(x.qty)*Number(x.rate),0)}})}
 const allExpenses=()=>[...(db.usage||[]).map(x=>({...x,category:x.item,amount:x.amount!=null?Number(x.amount):Number(x.qty)*Number(x.rate),kind:'usage'})),...(db.expenses||[]).map(x=>({...x,amount:Number(x.amount),kind:'expense'}))];

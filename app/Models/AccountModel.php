@@ -7,19 +7,30 @@ use App\Core\Model;
 
 final class AccountModel extends Model
 {
-    public static function expenses(): array
+    public static function expenses(?int $farmId = null): array
     {
-        return self::select('SELECT * FROM expenses ORDER BY id');
+        return self::scoped('expenses', $farmId);
     }
 
-    public static function sales(): array
+    public static function sales(?int $farmId = null): array
     {
-        return self::select('SELECT * FROM sales ORDER BY id');
+        return self::scoped('sales', $farmId);
     }
 
-    public static function advances(): array
+    public static function advances(?int $farmId = null): array
     {
-        return self::select('SELECT * FROM advances ORDER BY id');
+        return self::scoped('advances', $farmId);
+    }
+
+    private static function scoped(string $table, ?int $farmId): array
+    {
+        if (!in_array($table, ['expenses', 'sales', 'advances'], true)) {
+            return [];
+        }
+        if ($farmId === null) {
+            return self::select('SELECT * FROM ' . $table . ' ORDER BY id');
+        }
+        return self::select('SELECT * FROM ' . $table . ' WHERE farm_id = ? ORDER BY id', [$farmId]);
     }
 
     public static function findExpense(int $id): ?array

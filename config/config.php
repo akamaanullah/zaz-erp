@@ -18,7 +18,10 @@ $cfg = [
     'app' => [
         'env' => getenv('ZAZ_APP_ENV') !== false ? (string)getenv('ZAZ_APP_ENV') : 'local',
         'name' => 'ZAZ AGRICULTURE',
-        'allow_demo_reset' => (getenv('ZAZ_ALLOW_DEMO_RESET') !== false ? (string)getenv('ZAZ_ALLOW_DEMO_RESET') : '1') === '1',
+        'allow_demo_reset' => (getenv('ZAZ_ALLOW_DEMO_RESET') !== false
+            ? (string)getenv('ZAZ_ALLOW_DEMO_RESET') === '1'
+            : ((getenv('ZAZ_APP_ENV') !== false ? (string)getenv('ZAZ_APP_ENV') : 'local') === 'local')),
+        'session_idle_seconds' => 28800,
         'session_name' => 'zaz_erp_sid',
         'timezone' => 'Asia/Karachi',
     ],

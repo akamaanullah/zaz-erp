@@ -4,6 +4,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Core\Access;
+use App\Services\Totp;
 use App\Models\AccountModel;
 use App\Models\AuditModel;
 use App\Models\CatalogModel;
@@ -21,6 +22,7 @@ final class Snapshot
     {
         $office = Access::isOffice($user);
         $farmName = $office ? null : (string)($user['farm_name'] ?? '');
+        $scopeId = $office ? null : (int)($user['farm_id'] ?? 0);
         $farms = [];
         $farmNames = [];
         foreach (FarmModel::all() as $farm) {
@@ -50,7 +52,7 @@ final class Snapshot
         }
 
         $allocations = [];
-        foreach (HariModel::allocations() as $row) {
+        foreach (HariModel::allocations($scopeId) as $row) {
             $allocations[(int)$row['hari_id']][] = [
                 'crop' => $row['crop'],
                 'acres' => num($row['acres']),
@@ -60,17 +62,19 @@ final class Snapshot
             ];
         }
         $plotsByHari = [];
-        foreach (HariModel::all() as $hari) {
-            foreach (HariModel::plotsFor((int)$hari['id']) as $plot) {
-                $plotsByHari[(int)$hari['id']][] = [
+        $physical = [];
+        foreach (HariModel::plotsGrouped($scopeId) as $hariId => $plots) {
+            foreach ($plots as $plot) {
+                $plotsByHari[$hariId][] = [
                     'id' => (string)$plot['id'],
                     'name' => $plot['name'],
                     'acres' => num($plot['acres']),
                 ];
+                $physical[$hariId] = num(($physical[$hariId] ?? 0) + (float)$plot['acres']);
             }
         }
         $haris = [];
-        foreach (HariModel::all() as $hari) {
+        foreach (HariModel::all($scopeId) as $hari) {
             $name = $farmNames[(int)$hari['farm_id']] ?? '';
             if ($name === '' || ($farmName !== null && $name !== $farmName)) {
                 continue;
@@ -80,7 +84,7 @@ final class Snapshot
                 'farm' => $name,
                 'name' => $hari['name'],
                 'address' => $hari['address'],
-                'physicalAcres' => HariModel::physicalAcres((int)$hari['id']),
+                'physicalAcres' => $physical[(int)$hari['id']] ?? 0,
                 'plots' => $plotsByHari[(int)$hari['id']] ?? [],
                 'alloc' => $allocations[(int)$hari['id']] ?? [],
             ];
@@ -118,7 +122,7 @@ final class Snapshot
         }
 
         $transfers = [];
-        foreach (StockModel::transfers() as $row) {
+        foreach (StockModel::transfers($scopeId) as $row) {
             $name = $farmNames[(int)$row['farm_id']] ?? '';
             if ($name === '' || ($farmName !== null && $name !== $farmName)) {
                 continue;
@@ -136,7 +140,7 @@ final class Snapshot
         }
 
         $usage = [];
-        foreach (StockModel::usages() as $row) {
+        foreach (StockModel::usages($scopeId) as $row) {
             $mapped = $this->moneyRow($row, $farmNames, $seasonById, 'item_name');
             if ($mapped === null || ($farmName !== null && $mapped['farm'] !== $farmName)) {
                 continue;
@@ -144,7 +148,7 @@ final class Snapshot
             $usage[] = $mapped;
         }
         $expenses = [];
-        foreach (AccountModel::expenses() as $row) {
+        foreach (AccountModel::expenses($scopeId) as $row) {
             $mapped = $this->moneyRow($row, $farmNames, $seasonById, 'category_name');
             if ($mapped === null || ($farmName !== null && $mapped['farm'] !== $farmName)) {
                 continue;
@@ -154,7 +158,7 @@ final class Snapshot
             $expenses[] = $mapped;
         }
         $sales = [];
-        foreach (AccountModel::sales() as $row) {
+        foreach (AccountModel::sales($scopeId) as $row) {
             $name = $farmNames[(int)$row['farm_id']] ?? '';
             if ($name === '' || ($farmName !== null && $name !== $farmName)) {
                 continue;
@@ -176,7 +180,7 @@ final class Snapshot
             ];
         }
         $advances = [];
-        foreach (AccountModel::advances() as $row) {
+        foreach (AccountModel::advances($scopeId) as $row) {
             $name = $farmNames[(int)$row['farm_id']] ?? '';
             if ($name === '' || ($farmName !== null && $name !== $farmName)) {
                 continue;
@@ -194,7 +198,7 @@ final class Snapshot
         }
 
         $daily = [];
-        foreach (WorkModel::daily() as $row) {
+        foreach (WorkModel::daily($scopeId) as $row) {
             $name = $farmNames[(int)$row['farm_id']] ?? '';
             if ($name === '' || ($farmName !== null && $name !== $farmName)) {
                 continue;
@@ -280,15 +284,18 @@ final class Snapshot
         }
 
         $settings = WorkModel::settings((int)$user['id']);
-        $godown = [];
-        foreach (CatalogModel::ITEMS as $item) {
-            $received = StockModel::godownReceived($item);
-            $sent = StockModel::godownSent($item);
-            $godown[$item] = [
-                'received' => $received,
-                'sent' => $sent,
-                'available' => num($received - $sent),
-            ];
+        $godown = null;
+        if ($office) {
+            $godown = [];
+            foreach (CatalogModel::ITEMS as $item) {
+                $received = StockModel::godownReceived($item);
+                $sent = StockModel::godownSent($item);
+                $godown[$item] = [
+                    'received' => $received,
+                    'sent' => $sent,
+                    'available' => num($received - $sent),
+                ];
+            }
         }
         return [
             'version' => 2,
@@ -301,7 +308,9 @@ final class Snapshot
                 'active' => true,
                 'salary' => num($user['salary']),
                 'payType' => $user['pay_type'],
+                'totpEnabled' => (int)($user['totp_enabled'] ?? 0) === 1,
             ],
+            'totpAvailable' => Totp::available() && in_array($user['role'], ['owner', 'office'], true),
             'access' => Access::pages((string)$user['role']),
             'abilities' => Access::names($user),
             'users' => $users,

@@ -7,9 +7,12 @@ use App\Core\Model;
 
 final class HariModel extends Model
 {
-    public static function all(): array
+    public static function all(?int $farmId = null): array
     {
-        return self::select('SELECT * FROM haris ORDER BY id');
+        if ($farmId === null) {
+            return self::select('SELECT * FROM haris ORDER BY id');
+        }
+        return self::select('SELECT * FROM haris WHERE farm_id = ? ORDER BY id', [$farmId]);
     }
 
     public static function find(int $id): ?array
@@ -51,15 +54,33 @@ final class HariModel extends Model
         return num($row['acres'] ?? 0);
     }
 
-    public static function allocations(): array
+    public static function allocations(?int $farmId = null): array
     {
-        return self::select(
-            'SELECT a.id, a.plot_id, a.hari_id, a.crop, a.season_id, s.name AS season, p.acres, p.name AS plot_name, p.farm_id
+        $sql = 'SELECT a.id, a.plot_id, a.hari_id, a.crop, a.season_id, s.name AS season, p.acres, p.name AS plot_name, p.farm_id
              FROM crop_allocations a
              JOIN seasons s ON s.id = a.season_id
-             JOIN plots p ON p.id = a.plot_id
-             ORDER BY a.id'
-        );
+             JOIN plots p ON p.id = a.plot_id';
+        $params = [];
+        if ($farmId !== null) {
+            $sql .= ' WHERE p.farm_id = ?';
+            $params[] = $farmId;
+        }
+        return self::select($sql . ' ORDER BY a.id', $params);
+    }
+
+    public static function plotsGrouped(?int $farmId = null): array
+    {
+        $sql = 'SELECT * FROM plots';
+        $params = [];
+        if ($farmId !== null) {
+            $sql .= ' WHERE farm_id = ?';
+            $params[] = $farmId;
+        }
+        $grouped = [];
+        foreach (self::select($sql . ' ORDER BY id', $params) as $plot) {
+            $grouped[(int)$plot['hari_id']][] = $plot;
+        }
+        return $grouped;
     }
 
     public static function allocationExists(int $plotId, int $seasonId, string $crop): bool

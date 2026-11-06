@@ -7,9 +7,12 @@ use App\Core\Model;
 
 final class WorkModel extends Model
 {
-    public static function daily(): array
+    public static function daily(?int $farmId = null): array
     {
-        return self::select('SELECT * FROM daily_work ORDER BY occurred_at DESC, id DESC');
+        if ($farmId === null) {
+            return self::select('SELECT * FROM daily_work ORDER BY occurred_at DESC, id DESC');
+        }
+        return self::select('SELECT * FROM daily_work WHERE farm_id = ? ORDER BY occurred_at DESC, id DESC', [$farmId]);
     }
 
     public static function insertDaily(array $row): int

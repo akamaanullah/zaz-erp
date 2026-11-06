@@ -203,6 +203,20 @@ final class OfficeOps
         if (($in['format'] ?? '') !== 'zaz-erp-mvc-1' || !isset($in['db']) || !is_array($in['db'])) {
             throw new HttpException(422, 'Not a ZAZ ERP backup');
         }
+        $encoded = json_encode($in);
+        if ($encoded !== false && strlen($encoded) > 2000000) {
+            throw new HttpException(422, 'Backup file is too large');
+        }
+        foreach (['users', 'password', 'password_hash', 'totp_secret'] as $blocked) {
+            if (array_key_exists($blocked, $in) || array_key_exists($blocked, $in['db'])) {
+                throw new HttpException(422, 'Backup cannot include accounts or secrets');
+            }
+        }
+        foreach (['farms', 'haris', 'receipts', 'transfers', 'usage', 'expenses', 'sales', 'advances', 'dailyWork', 'categories'] as $key) {
+            if (isset($in['db'][$key]) && is_array($in['db'][$key]) && count($in['db'][$key]) > 5000) {
+                throw new HttpException(422, 'Backup has too many rows');
+            }
+        }
         Database::transaction(function () use ($user, $in): void {
             $this->wipeBusiness();
             (new DemoSeeder())->restoreBackup($in['db'], (int)$user['id']);

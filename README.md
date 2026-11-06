@@ -35,7 +35,10 @@ D:\xampp\php\php.exe database\seed.php
 
 ```bat
 D:\xampp\php\php.exe tests\run.php
+D:\xampp\php\php.exe tests\scenario.php
 ```
+
+Screen flow: `docs/SCREEN-FLOW.md`. Readiness and limits: `docs/READINESS.md`.
 
 Tests create and drop only `zaz_agriculture_test`.
 

@@ -11,6 +11,8 @@ return static function (Router $router): void {
     $router->get('/', [AuthController::class, 'home']);
     $router->get('/login', [AuthController::class, 'showLogin'], ['guest']);
     $router->post('/login', [AuthController::class, 'login'], ['guest', 'csrf']);
+    $router->get('/login/totp', [AuthController::class, 'showTotp']);
+    $router->post('/login/totp', [AuthController::class, 'verifyTotp'], ['csrf']);
     $router->post('/logout', [AuthController::class, 'logout'], ['auth', 'csrf']);
 
     $router->get('/api/bootstrap', [ApiController::class, 'bootstrap'], ['auth']);

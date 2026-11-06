@@ -88,4 +88,24 @@ final class UserModel extends Model
     {
         self::execute('UPDATE users SET username = ?, updated_at = NOW() WHERE id = ?', [self::normalize($username), $id]);
     }
+
+    public static function setTotpPending(int $id, string $encrypted): void
+    {
+        self::execute('UPDATE users SET totp_secret = ?, totp_enabled = 0, totp_last_step = 0, updated_at = NOW() WHERE id = ?', [$encrypted, $id]);
+    }
+
+    public static function enableTotp(int $id): void
+    {
+        self::execute('UPDATE users SET totp_enabled = 1, updated_at = NOW() WHERE id = ?', [$id]);
+    }
+
+    public static function clearTotp(int $id): void
+    {
+        self::execute('UPDATE users SET totp_secret = NULL, totp_enabled = 0, totp_last_step = 0, updated_at = NOW() WHERE id = ?', [$id]);
+    }
+
+    public static function setTotpStep(int $id, int $step): void
+    {
+        self::execute('UPDATE users SET totp_last_step = ? WHERE id = ?', [$step, $id]);
+    }
 }

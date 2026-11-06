@@ -70,9 +70,12 @@ final class StockModel extends Model
         return self::insertId();
     }
 
-    public static function transfers(): array
+    public static function transfers(?int $farmId = null): array
     {
-        return self::select('SELECT * FROM transfers ORDER BY id');
+        if ($farmId === null) {
+            return self::select('SELECT * FROM transfers ORDER BY id');
+        }
+        return self::select('SELECT * FROM transfers WHERE farm_id = ? ORDER BY id', [$farmId]);
     }
 
     public static function findTransfer(int $id, bool $lock = false): ?array
@@ -99,9 +102,12 @@ final class StockModel extends Model
         );
     }
 
-    public static function usages(): array
+    public static function usages(?int $farmId = null): array
     {
-        return self::select('SELECT * FROM stock_usages ORDER BY id');
+        if ($farmId === null) {
+            return self::select('SELECT * FROM stock_usages ORDER BY id');
+        }
+        return self::select('SELECT * FROM stock_usages WHERE farm_id = ? ORDER BY id', [$farmId]);
     }
 
     public static function findUsage(int $id): ?array
