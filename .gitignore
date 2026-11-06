@@ -1,0 +1,16 @@
+/config/config.local.php
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/cache/*
+!/storage/cache/.gitkeep
+/storage/sessions/*
+!/storage/sessions/.gitkeep
+/storage/dev-credentials.local.txt
+/storage/e2e-run.json
+/storage/tmp-browser*/
+/storage/screenshots/
+/vendor/
+/node_modules/
+/tests/e2e/node_modules/
+.DS_Store
+Thumbs.db

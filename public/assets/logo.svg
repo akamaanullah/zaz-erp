@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-label="ZAZ Agriculture">
+<defs>
+<linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b1530"/><stop offset=".6" stop-color="#16265a"/><stop offset="1" stop-color="#22357a"/></linearGradient>
+<linearGradient id="gold" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe3a0"/><stop offset=".5" stop-color="#f0bb4a"/><stop offset="1" stop-color="#c7860f"/></linearGradient>
+<linearGradient id="sun" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe9b0"/><stop offset="1" stop-color="#e5a52c"/></linearGradient>
+</defs>
+<rect x="4" y="4" width="232" height="232" rx="52" fill="url(#bg)"/>
+<rect x="12" y="12" width="216" height="216" rx="45" fill="none" stroke="url(#gold)" stroke-width="2.5" opacity=".75"/>
+<circle cx="120" cy="96" r="34" fill="url(#sun)" opacity=".95"/>
+<path d="M30 150 Q120 110 210 150 L210 170 Q120 140 30 170z" fill="url(#gold)" opacity=".28"/>
+<g fill="url(#gold)">
+ <g transform="translate(52 0)"><path d="M0 172 V100" stroke="url(#gold)" stroke-width="3" fill="none"/>
+  <path d="M0 108 q-11-4-12-17 q11 3 12 17zM0 108 q11-4 12-17 q-11 3-12 17zM0 126 q-11-4-12-17 q11 3 12 17zM0 126 q11-4 12-17 q-11 3-12 17zM0 144 q-11-4-12-17 q11 3 12 17zM0 144 q11-4 12-17 q-11 3-12 17zM0 100 q-5-8 0-16 q5 8 0 16z"/></g>
+ <g transform="translate(188 0)"><path d="M0 172 V100" stroke="url(#gold)" stroke-width="3" fill="none"/>
+  <path d="M0 108 q-11-4-12-17 q11 3 12 17zM0 108 q11-4 12-17 q-11 3-12 17zM0 126 q-11-4-12-17 q11 3 12 17zM0 126 q11-4 12-17 q-11 3-12 17zM0 144 q-11-4-12-17 q11 3 12 17zM0 144 q11-4 12-17 q-11 3-12 17zM0 100 q-5-8 0-16 q5 8 0 16z"/></g>
+</g>
+<text x="120" y="152" text-anchor="middle" font-family="Georgia,'Times New Roman',serif" font-weight="700" font-size="60" fill="url(#gold)" letter-spacing="2" stroke="#0b1530" stroke-width="1.5" paint-order="stroke">ZAZ</text>
+<rect x="44" y="168" width="152" height="26" rx="13" fill="url(#gold)"/>
+<text x="120" y="186" text-anchor="middle" font-family="'Plus Jakarta Sans',Arial,sans-serif" font-weight="800" font-size="13.5" fill="#0b1530" letter-spacing="2.2">AGRICULTURE</text>
+<path d="M70 210 h100" stroke="url(#gold)" stroke-width="2" opacity=".6" stroke-linecap="round"/>
+</svg>

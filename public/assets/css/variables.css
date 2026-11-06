@@ -1,0 +1,20 @@
+:root{
+  --font:"Inter","Segoe UI",system-ui,-apple-system,Roboto,Arial,sans-serif;
+  --font-rtl:"Noto Naskh Arabic","Noto Sans Arabic","Segoe UI",Tahoma,Arial,sans-serif;
+  --fs:15.5px;--radius:14px;--radius-sm:9px;
+  --primary:#1b2a5c;--primary-600:#18265a;--primary-700:#0f1a3d;--primary-50:#eceefa;--primary-100:#d3d8f0;
+  --accent:#b8862b;--accent-50:#fbf3e2;--accent-700:#7a5410;
+  --bg:#f7f3ea;--surface:#ffffff;--surface-2:#faf6ec;--border:#e8e2d2;--text:#121a33;--muted:#565b6e;
+  --danger:#b42318;--danger-50:#fdecea;--warning:#a15c07;--warning-50:#fff4e0;--success:#0f766e;--success-50:#e3f4f2;--info:#1d5c96;--info-50:#e8f1fa;
+  --sidebar:#0b1530;--sidebar-text:#dfe3f2;--sidebar-muted:#97a0c0;--sidebar-active:#1b2a5c;
+  --shadow:0 1px 2px rgba(11,21,48,.06),0 4px 14px rgba(11,21,48,.06);--shadow-lg:0 18px 50px rgba(11,21,48,.22);
+  --c1:#1b2a5c;--c2:#b8862b;--c3:#3d7cc9;--c4:#e07a5f;--c5:#2aa198;--c6:#8a6db1;
+}
+[data-theme="dark"]{
+  --primary:#e3b04b;--primary-600:#efc066;--primary-700:#f7d991;--primary-50:#1a2140;--primary-100:#26305a;
+  --accent:#e0b15a;--accent-50:#33290f;--accent-700:#f0cf8c;
+  --bg:#080d1f;--surface:#0f1630;--surface-2:#141c3a;--border:#263058;--text:#e9ecf6;--muted:#a3abc8;
+  --danger:#ff8a7a;--danger-50:#3a1a16;--warning:#f3b563;--warning-50:#352612;--success:#5fd4c4;--success-50:#0f2b2a;--info:#8cc3f2;--info-50:#13283b;
+  --sidebar:#060b1a;--sidebar-text:#dfe3f2;--sidebar-muted:#8d96b8;--sidebar-active:#1b2a5c;
+  --shadow:0 1px 2px rgba(0,0,0,.4);--shadow-lg:0 18px 50px rgba(0,0,0,.6);
+}
