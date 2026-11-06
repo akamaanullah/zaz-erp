@@ -140,25 +140,45 @@ final class AccountOps
     {
         Access::assert($user, 'admin.approvals');
         $farm = Support::farmByName((string)($in['farm'] ?? ''));
+        $seasonName = trim((string)($in['season'] ?? ''));
+        $seasonId = null;
+        $unassigned = false;
+        if ($seasonName === 'No season') {
+            $unassigned = true;
+        } elseif ($seasonName !== '') {
+            $seasonId = (int)Support::season($in)['id'];
+        }
         $count = 0;
-        Database::transaction(function () use ($user, $farm, &$count): void {
+        $matches = static function (array $row) use ($farm, $seasonId, $unassigned): bool {
+            if ((int)$row['farm_id'] !== (int)$farm['id'] || $row['status'] !== 'pending') {
+                return false;
+            }
+            if ($unassigned) {
+                return $row['season_id'] === null;
+            }
+            if ($seasonId !== null) {
+                return (int)$row['season_id'] === $seasonId;
+            }
+            return true;
+        };
+        Database::transaction(function () use ($user, $farm, &$count, $matches): void {
             foreach (StockModel::usages() as $row) {
-                if ((int)$row['farm_id'] === (int)$farm['id'] && $row['status'] === 'pending' && $this->approveRow($user, 'usage', (int)$row['id'])) {
+                if ($matches($row) && $this->approveRow($user, 'usage', (int)$row['id'])) {
                     $count++;
                 }
             }
             foreach (AccountModel::expenses() as $row) {
-                if ((int)$row['farm_id'] === (int)$farm['id'] && $row['status'] === 'pending' && $this->approveRow($user, 'expenses', (int)$row['id'])) {
+                if ($matches($row) && $this->approveRow($user, 'expenses', (int)$row['id'])) {
                     $count++;
                 }
             }
             foreach (AccountModel::sales() as $row) {
-                if ((int)$row['farm_id'] === (int)$farm['id'] && $row['status'] === 'pending' && $this->approveRow($user, 'sales', (int)$row['id'])) {
+                if ($matches($row) && $this->approveRow($user, 'sales', (int)$row['id'])) {
                     $count++;
                 }
             }
             foreach (AccountModel::advances() as $row) {
-                if ((int)$row['farm_id'] === (int)$farm['id'] && $row['status'] === 'pending' && $this->approveRow($user, 'advances', (int)$row['id'])) {
+                if ($matches($row) && $this->approveRow($user, 'advances', (int)$row['id'])) {
                     $count++;
                 }
             }

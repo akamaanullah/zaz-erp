@@ -27,8 +27,8 @@ Store.ready(function(){App.boot({id:'settlements',title:'Hari Ledger & Settlemen
   <div class="grid g4" style="margin-bottom:16px">${[['Gross 50% share',preview.gross,'cash',''],['Hari expenses',preview.ded,'receipt','red'],['Advances',preview.advance,'hand','gold'],['Net due',preview.balance,'book','blue']].map(([a,b,c,k])=>`<div class="card kpi ${k}" style="box-shadow:none"><div class="ic">${icon(c)}</div><div><div class="lbl">${a}</div><div class="val" style="font-size:19px">${money(b)}</div></div></div>`).join('')}</div>
   <div class="rtl" id="stmt" dir="rtl" lang="sd">${U.empty('Loading statement','','book')}</div><div class="sign no-print"></div>`;
   document.getElementById('pr').onclick=()=>printLedger(id);
-  S.ledgerDetail(id,false).then(l=>{const box=document.getElementById('stmt');if(box)box.innerHTML=statement(h,l,false)}).catch(err=>U.toast(err.message||'Ledger failed','error'))}
- function printLedger(id){const h=S.getHari(id);if(!h)return U.toast('Hari not found','error');S.ledgerDetail(id,true).then(l=>App.print(App.docHead('','Hari Ledger • '+h.farm)+statement(h,l,true)+'<div class="sign"><div>هاري جي صحيح</div><div>آفيس جي صحيح</div></div>',{rtl:true})).catch(err=>U.toast(err.message||'Ledger failed','error'))}
+  S.ledgerDetail(id,false,App.season()).then(l=>{const box=document.getElementById('stmt');if(box)box.innerHTML=statement(h,l,false)}).catch(err=>U.toast(err.message||'Ledger failed','error'))}
+ function printLedger(id){const h=S.getHari(id);if(!h)return U.toast('Hari not found','error');S.ledgerDetail(id,true,App.season()).then(l=>App.print(App.docHead('','Hari Ledger • '+h.farm)+statement(h,l,true)+'<div class="sign"><div>هاري جي صحيح</div><div>آفيس جي صحيح</div></div>',{rtl:true})).catch(err=>U.toast(err.message||'Ledger failed','error'))}
  U.on(el,'[data-view]',b=>b.onclick=()=>{show(b.dataset.view);document.getElementById('detail').scrollIntoView({behavior:'smooth'})});
  U.on(el,'[data-print]',b=>b.onclick=()=>printLedger(b.dataset.print));
  show(selId)}});});

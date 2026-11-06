@@ -5,6 +5,8 @@ Yeh local app ka asal flow hai. Numbers neeche **example** hain, live database k
 Sign-in: `http://localhost/zaz-agriculture/public/login`  
 Username aur password. Koi account list nahi. Role aur farm server account se aata hai. Sab roles `/dashboard` par jaate hain, lekin data apni scope ka hota hai.
 
+Upar farm aur season ka selector hai. Sales, usage history, expenses, advances, approvals, Hari ledger, settlement print aur report totals **us season** ke hain. SQL farm ke sath season bhi lagati hai. Doosra season select karne se doosre farm ka data nahi khulta. Godown, transfers, farm stock remaining, salaries aur audit season se nahi kat-te: stock asal quantity hai, salary month ki hai, audit waqai ki list hai. Jis purani row par season na ho, woh "No season" ke naam se alag rehti hai. Koi row delete nahi hoti.
+
 ## Pehle setup (Owner ya Office)
 
 1. **Farms** (`/farms`) — farm ka naam, total acres, Seri acres. Hari land = total − Seri. Example: 100 acres, Seri 20, Hari land 80.

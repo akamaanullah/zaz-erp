@@ -11,8 +11,12 @@ export const art = path.join(process.env.LOCALAPPDATA || '', 'Cursor', 'AgentSto
 export const statePath = path.join(root, 'storage', 'e2e-run.json');
 
 const secrets = new Set();
+let closingBrowser = false;
 process.on('uncaughtException', (err) => {
-  console.error('UNCAUGHT ' + redact(err && err.message ? err.message : err));
+  const msg = String(err && err.message ? err.message : err);
+  if (closingBrowser && msg.includes('Target page, context or browser has been closed')) return;
+  console.error('UNCAUGHT ' + redact(msg));
+  process.exitCode = 1;
 });
 
 export function remember(value) {
@@ -77,7 +81,11 @@ export async function openSession(browser, username, password, bucket) {
   await page.waitForSelector('h1');
   return {
     page,
-    close: async () => { await context.close().catch(() => {}); },
+    close: async () => {
+    closingBrowser = true;
+    for (const open of context.pages()) await open.close().catch(() => {});
+    await context.close().catch(() => {});
+  },
   };
 }
 
@@ -174,12 +182,13 @@ export async function runSuite(name, fn) {
     console.log('FAIL ' + name + ' setup — ' + redact(err && err.message ? err.message : err));
     await flush();
   } finally {
+    closingBrowser = true;
     if (browser) await browser.close().catch(() => {});
     await flush();
   }
   const failed = results.filter((row) => !row.ok).length;
   console.log(`SUITE ${name} ${results.length - failed} passed, ${failed} failed`);
-  process.exit(failed ? 1 : 0);
+  process.exit(failed || process.exitCode ? 1 : 0);
 }
 
 export function spawnPhp(args, env, stdin) {

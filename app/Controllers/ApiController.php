@@ -33,7 +33,8 @@ final class ApiController extends Controller
     {
         $hariId = (int)($request->query['hari'] ?? 0);
         $approved = (string)($request->query['approved'] ?? '') === '1';
-        return $this->json(['ok' => true, 'ledger' => (new ReadModel())->ledger($this->user(), $hariId, $approved)]);
+        $season = (string)($request->query['season'] ?? '');
+        return $this->json(['ok' => true, 'ledger' => (new ReadModel())->ledger($this->user(), $hariId, $approved, $season)]);
     }
 
     public function backup(Request $request): Response

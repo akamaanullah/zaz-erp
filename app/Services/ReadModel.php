@@ -22,8 +22,12 @@ final class ReadModel
         $pdo = Database::pdo();
         $where = $scope === null ? '' : ' WHERE farm_id = ?';
         $params = $scope === null ? [] : [$scope];
-        $byFarm = [];
-        $add = function (string $sql, string $field) use ($pdo, $params, $farmNames, &$byFarm): void {
+        $seasonNames = [];
+        foreach (SeasonModel::all() as $seasonRow) {
+            $seasonNames[(int)$seasonRow['id']] = $seasonRow['name'];
+        }
+        $bySeason = [];
+        $add = function (string $sql, string $field) use ($pdo, $params, $farmNames, $seasonNames, &$bySeason): void {
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
             foreach ($stmt->fetchAll() as $row) {
@@ -31,21 +35,24 @@ final class ReadModel
                 if ($name === '') {
                     continue;
                 }
-                $byFarm[$name][$field] = ($byFarm[$name][$field] ?? 0) + (float)$row['v'];
+                $season = $seasonNames[(int)($row['season_id'] ?? 0)] ?? 'No season';
+                $bySeason[$season]['byFarm'][$name][$field] = ($bySeason[$season]['byFarm'][$name][$field] ?? 0) + (float)$row['v'];
             }
         };
-        $add('SELECT farm_id, SUM(amount) v FROM sales' . $where . ' GROUP BY farm_id', 'sales');
-        $add('SELECT farm_id, COUNT(*) v FROM sales' . $where . ' GROUP BY farm_id', 'saleCount');
-        $add('SELECT farm_id, SUM(kg) v FROM sales' . $where . ' GROUP BY farm_id', 'saleKg');
-        $add('SELECT farm_id, SUM(hari_share_amount) v FROM sales' . $where . ' GROUP BY farm_id', 'hariShare');
-        $add('SELECT farm_id, SUM(amount) v FROM stock_usages' . $where . ' GROUP BY farm_id', 'costs');
-        $add('SELECT farm_id, COUNT(*) v FROM stock_usages' . $where . ' GROUP BY farm_id', 'usageCount');
-        $add('SELECT farm_id, SUM(amount) v FROM expenses' . $where . ' GROUP BY farm_id', 'costs');
-        $add('SELECT farm_id, COUNT(*) v FROM expenses' . $where . ' GROUP BY farm_id', 'expenseCount');
-        $add('SELECT farm_id, SUM(amount) v FROM advances' . $where . ' GROUP BY farm_id', 'advances');
-        $add('SELECT farm_id, COUNT(*) v FROM advances' . $where . ' GROUP BY farm_id', 'advanceCount');
+        $group = $where === '' ? ' GROUP BY farm_id, season_id' : ' GROUP BY farm_id, season_id';
+        $add('SELECT farm_id, season_id, SUM(amount) v FROM sales' . $where . $group, 'sales');
+        $add('SELECT farm_id, season_id, COUNT(*) v FROM sales' . $where . $group, 'saleCount');
+        $add('SELECT farm_id, season_id, SUM(kg) v FROM sales' . $where . $group, 'saleKg');
+        $add('SELECT farm_id, season_id, SUM(hari_share_amount) v FROM sales' . $where . $group, 'hariShare');
+        $add('SELECT farm_id, season_id, SUM(amount) v FROM stock_usages' . $where . $group, 'costs');
+        $add('SELECT farm_id, season_id, COUNT(*) v FROM stock_usages' . $where . $group, 'usageCount');
+        $add('SELECT farm_id, season_id, SUM(amount) v FROM expenses' . $where . $group, 'costs');
+        $add('SELECT farm_id, season_id, COUNT(*) v FROM expenses' . $where . $group, 'expenseCount');
+        $add('SELECT farm_id, season_id, SUM(amount) v FROM advances' . $where . $group, 'advances');
+        $add('SELECT farm_id, season_id, COUNT(*) v FROM advances' . $where . $group, 'advanceCount');
         foreach (['stock_usages', 'expenses', 'sales', 'advances'] as $table) {
-            $add('SELECT farm_id, COUNT(*) v FROM ' . $table . ($scope === null ? " WHERE status = 'pending'" : " WHERE status = 'pending' AND farm_id = ?") . ' GROUP BY farm_id', 'pending');
+            $pendingWhere = $scope === null ? " WHERE status = 'pending'" : " WHERE status = 'pending' AND farm_id = ?";
+            $add('SELECT farm_id, season_id, COUNT(*) v FROM ' . $table . $pendingWhere . ' GROUP BY farm_id, season_id', 'pending');
         }
         $stock = [];
         $tWhere = $scope === null ? '' : ' WHERE t.farm_id = ?';
@@ -78,37 +85,43 @@ final class ReadModel
             $cell['left'] = num($cell['received'] - $cell['used']);
             $stock[$name][$row['item_name']] = $cell;
         }
-        $cats = [];
-        $stmt = $pdo->prepare('SELECT farm_id, item_name label, SUM(amount) v FROM stock_usages' . $uWhere . ' GROUP BY farm_id, item_name');
+        $stmt = $pdo->prepare('SELECT farm_id, season_id, item_name label, SUM(amount) v FROM stock_usages' . $uWhere . ' GROUP BY farm_id, season_id, item_name');
         $stmt->execute($params);
         foreach ($stmt->fetchAll() as $row) {
             $name = $farmNames[(int)$row['farm_id']] ?? '';
-            if ($name !== '') {
-                $cats[$name][$row['label']] = num($row['v']);
+            if ($name === '') {
+                continue;
             }
+            $season = $seasonNames[(int)($row['season_id'] ?? 0)] ?? 'No season';
+            $bySeason[$season]['costCats'][$name][$row['label']] = num($row['v']);
         }
-        $expenseCats = [];
-        $stmt = $pdo->prepare('SELECT farm_id, category_name label, SUM(amount) v, COUNT(*) n FROM expenses' . $uWhere . ' GROUP BY farm_id, category_name');
+        $stmt = $pdo->prepare('SELECT farm_id, season_id, category_name label, SUM(amount) v, COUNT(*) n FROM expenses' . $uWhere . ' GROUP BY farm_id, season_id, category_name');
         $stmt->execute($params);
         $expenseCounts = [];
         foreach ($stmt->fetchAll() as $row) {
             $name = $farmNames[(int)$row['farm_id']] ?? '';
-            if ($name !== '') {
-                $cats[$name][$row['label']] = num(($cats[$name][$row['label']] ?? 0) + (float)$row['v']);
-                $expenseCats[$name][$row['label']] = num($row['v']);
-                $expenseCounts[$row['label']] = ($expenseCounts[$row['label']] ?? 0) + (int)$row['n'];
+            if ($name === '') {
+                continue;
             }
+            $season = $seasonNames[(int)($row['season_id'] ?? 0)] ?? 'No season';
+            $bySeason[$season]['costCats'][$name][$row['label']] = num(($bySeason[$season]['costCats'][$name][$row['label']] ?? 0) + (float)$row['v']);
+            $bySeason[$season]['expenseCats'][$name][$row['label']] = num($row['v']);
+            $expenseCounts[$row['label']] = ($expenseCounts[$row['label']] ?? 0) + (int)$row['n'];
         }
-        $crops = [];
-        $stmt = $pdo->prepare('SELECT farm_id, crop, SUM(amount) v FROM sales' . $uWhere . ' GROUP BY farm_id, crop');
+        $stmt = $pdo->prepare('SELECT farm_id, season_id, crop, SUM(amount) v FROM sales' . $uWhere . ' GROUP BY farm_id, season_id, crop');
         $stmt->execute($params);
         foreach ($stmt->fetchAll() as $row) {
             $name = $farmNames[(int)$row['farm_id']] ?? '';
-            if ($name !== '') {
-                $crops[$name][$row['crop']] = num($row['v']);
+            if ($name === '') {
+                continue;
             }
+            $season = $seasonNames[(int)($row['season_id'] ?? 0)] ?? 'No season';
+            $bySeason[$season]['salesByCrop'][$name][$row['crop']] = num($row['v']);
         }
-        return ['byFarm' => $byFarm, 'stock' => $stock, 'costCats' => $cats, 'expenseCats' => $expenseCats, 'expenseCounts' => $expenseCounts, 'salesByCrop' => $crops, 'hari' => $this->hariTotals($scope), 'daily24' => $this->daily24($scope)];
+        foreach ($this->hariTotals($scope, $seasonNames) as $season => $rows) {
+            $bySeason[$season]['hari'] = $rows;
+        }
+        return ['seasons' => $bySeason, 'stock' => $stock, 'expenseCounts' => $expenseCounts, 'daily24' => $this->daily24($scope)];
     }
 
     public function table(array $user, array $query): array
@@ -152,33 +165,36 @@ final class ReadModel
         }
         if ($resource === 'approvals') {
             $totals['byKind'] = [];
+            [$kindSeason, $kindParams] = $this->seasonSql((string)($query['season'] ?? ''));
             foreach (['stock_usages' => 'usage', 'expenses' => 'expenses', 'sales' => 'sales', 'advances' => 'advances'] as $table => $kind) {
-                $sql = 'SELECT COUNT(*) c FROM ' . $table . " WHERE status = 'pending'" . ($farmId === null ? '' : ' AND farm_id = ?');
+                $sql = 'SELECT COUNT(*) c FROM ' . $table . " WHERE status = 'pending'" . ($farmId === null ? '' : ' AND farm_id = ?') . $kindSeason;
                 $countKind = $pdo->prepare($sql);
-                $countKind->execute($farmId === null ? [] : [$farmId]);
+                $countKind->execute(array_merge($farmId === null ? [] : [$farmId], $kindParams));
                 $totals['byKind'][$kind] = (int)$countKind->fetch()['c'];
             }
         }
         return ['rows' => $rows, 'total' => $total, 'page' => $page, 'per' => $per, 'totals' => $totals];
     }
 
-    public function ledger(array $user, int $hariId, bool $approvedOnly): array
+    public function ledger(array $user, int $hariId, bool $approvedOnly, string $seasonName = ''): array
     {
         $hari = HariModel::find($hariId);
         if (!$hari) {
             throw new HttpException(404, 'Hari not found');
         }
         Access::assertFarm($user, (int)$hari['farm_id']);
+        [$seasonSql, $seasonParams] = $this->seasonSql($seasonName, '');
         $status = $approvedOnly ? " AND status = 'approved'" : '';
         $pdo = Database::pdo();
-        $sales = $pdo->prepare('SELECT * FROM sales WHERE hari_id = ?' . $status . ' ORDER BY id');
-        $sales->execute([$hariId]);
-        $usage = $pdo->prepare('SELECT * FROM stock_usages WHERE hari_id = ?' . $status . ' ORDER BY id');
-        $usage->execute([$hariId]);
-        $expenses = $pdo->prepare('SELECT * FROM expenses WHERE hari_id = ?' . $status . ' ORDER BY id');
-        $expenses->execute([$hariId]);
-        $advances = $pdo->prepare('SELECT * FROM advances WHERE hari_id = ?' . $status . ' ORDER BY id');
-        $advances->execute([$hariId]);
+        $bind = array_merge([$hariId], $seasonParams);
+        $sales = $pdo->prepare('SELECT * FROM sales WHERE hari_id = ?' . $seasonSql . $status . ' ORDER BY id');
+        $sales->execute($bind);
+        $usage = $pdo->prepare('SELECT * FROM stock_usages WHERE hari_id = ?' . $seasonSql . $status . ' ORDER BY id');
+        $usage->execute($bind);
+        $expenses = $pdo->prepare('SELECT * FROM expenses WHERE hari_id = ?' . $seasonSql . $status . ' ORDER BY id');
+        $expenses->execute($bind);
+        $advances = $pdo->prepare('SELECT * FROM advances WHERE hari_id = ?' . $seasonSql . $status . ' ORDER BY id');
+        $advances->execute($bind);
         $saleRows = [];
         $gross = 0.0;
         foreach ($sales->fetchAll() as $row) {
@@ -227,16 +243,17 @@ final class ReadModel
         ];
     }
 
-    private function hariTotals(?int $scope): array
+    /** @param array<int, string> $seasonNames @return array<string, list<array<string, mixed>>> */
+    private function hariTotals(?int $scope, array $seasonNames): array
     {
         $pdo = Database::pdo();
         $where = $scope === null ? '' : ' AND h.farm_id = ?';
         $params = $scope === null ? [] : [$scope];
         $stmt = $pdo->prepare('SELECT h.id, h.name, f.name farm, COALESCE(SUM(p.acres),0) acres FROM haris h JOIN farms f ON f.id = h.farm_id LEFT JOIN plots p ON p.hari_id = h.id WHERE 1=1' . $where . ' GROUP BY h.id, h.name, f.name ORDER BY h.name');
         $stmt->execute($params);
-        $out = [];
+        $base = [];
         foreach ($stmt->fetchAll() as $row) {
-            $out[(int)$row['id']] = [
+            $base[(int)$row['id']] = [
                 'id' => (string)$row['id'],
                 'name' => $row['name'],
                 'farm' => $row['farm'],
@@ -245,32 +262,58 @@ final class ReadModel
                 'final' => ['gross' => 0, 'ded' => 0, 'advance' => 0, 'balance' => 0],
             ];
         }
-        $this->foldHari($out, 'SELECT hari_id, status, SUM(hari_share_amount) v FROM sales WHERE hari_id IS NOT NULL' . ($scope === null ? '' : ' AND farm_id = ?') . ' GROUP BY hari_id, status', $params, 'gross');
-        $this->foldHari($out, 'SELECT hari_id, status, SUM(amount * share_snapshot / 100) v FROM stock_usages WHERE hari_id IS NOT NULL' . ($scope === null ? '' : ' AND farm_id = ?') . ' GROUP BY hari_id, status', $params, 'ded');
-        $this->foldHari($out, 'SELECT hari_id, status, SUM(amount * share_snapshot / 100) v FROM expenses WHERE hari_id IS NOT NULL' . ($scope === null ? '' : ' AND farm_id = ?') . ' GROUP BY hari_id, status', $params, 'ded');
-        $this->foldHari($out, 'SELECT hari_id, status, SUM(amount) v FROM advances WHERE 1=1' . ($scope === null ? '' : ' AND farm_id = ?') . ' GROUP BY hari_id, status', $params, 'advance');
-        foreach ($out as &$row) {
-            foreach (['preview', 'final'] as $key) {
-                $row[$key]['balance'] = num($row[$key]['gross'] - $row[$key]['ded'] - $row[$key]['advance']);
+        $out = [];
+        $fold = function (string $sql, string $field) use ($pdo, $params, $seasonNames, $base, &$out): void {
+            $stmt = $pdo->prepare($sql);
+            $stmt->execute($params);
+            foreach ($stmt->fetchAll() as $row) {
+                $id = (int)$row['hari_id'];
+                if (!isset($base[$id])) {
+                    continue;
+                }
+                $season = $seasonNames[(int)($row['season_id'] ?? 0)] ?? 'No season';
+                if (!isset($out[$season][$id])) {
+                    $out[$season][$id] = $base[$id];
+                }
+                $out[$season][$id]['preview'][$field] = num($out[$season][$id]['preview'][$field] + (float)$row['v']);
+                if ($row['status'] === 'approved') {
+                    $out[$season][$id]['final'][$field] = num($out[$season][$id]['final'][$field] + (float)$row['v']);
+                }
             }
+        };
+        $farmSql = $scope === null ? '' : ' AND farm_id = ?';
+        $fold('SELECT hari_id, season_id, status, SUM(hari_share_amount) v FROM sales WHERE hari_id IS NOT NULL' . $farmSql . ' GROUP BY hari_id, season_id, status', 'gross');
+        $fold('SELECT hari_id, season_id, status, SUM(amount * share_snapshot / 100) v FROM stock_usages WHERE hari_id IS NOT NULL' . $farmSql . ' GROUP BY hari_id, season_id, status', 'ded');
+        $fold('SELECT hari_id, season_id, status, SUM(amount * share_snapshot / 100) v FROM expenses WHERE hari_id IS NOT NULL' . $farmSql . ' GROUP BY hari_id, season_id, status', 'ded');
+        $fold('SELECT hari_id, season_id, status, SUM(amount) v FROM advances WHERE 1=1' . $farmSql . ' GROUP BY hari_id, season_id, status', 'advance');
+        $lists = [];
+        foreach ($out as $season => $rows) {
+            foreach ($rows as &$row) {
+                foreach (['preview', 'final'] as $key) {
+                    $row[$key]['balance'] = num($row[$key]['gross'] - $row[$key]['ded'] - $row[$key]['advance']);
+                }
+            }
+            $lists[$season] = array_values($rows);
         }
-        return array_values($out);
+        return $lists;
     }
 
-    private function foldHari(array &$out, string $sql, array $params, string $field): void
+    /** @return array{0:string,1:array<int, int>} */
+    private function seasonSql(string $seasonName, string $column = 'season_id'): array
     {
-        $stmt = Database::pdo()->prepare($sql);
-        $stmt->execute($params);
-        foreach ($stmt->fetchAll() as $row) {
-            $id = (int)$row['hari_id'];
-            if (!isset($out[$id])) {
-                continue;
-            }
-            $out[$id]['preview'][$field] = num($out[$id]['preview'][$field] + (float)$row['v']);
-            if ($row['status'] === 'approved') {
-                $out[$id]['final'][$field] = num($out[$id]['final'][$field] + (float)$row['v']);
-            }
+        $seasonName = trim($seasonName);
+        if ($seasonName === '' || $seasonName === 'all') {
+            return ['', []];
         }
+        $column = $column === '' ? 'season_id' : $column;
+        if ($seasonName === 'No season') {
+            return [' AND ' . $column . ' IS NULL', []];
+        }
+        $season = SeasonModel::findByName($seasonName);
+        if (!$season) {
+            throw new HttpException(422, 'Choose a valid season');
+        }
+        return [' AND ' . $column . ' = ?', [(int)$season['id']]];
     }
 
     private function listTotals(string $resource, ?int $farmId, array $query): array
@@ -285,14 +328,12 @@ final class ReadModel
             $where[] = 'farm_id = ?';
             $params[] = $farmId;
         }
-        $seasonName = trim((string)($query['season'] ?? ''));
-        if ($seasonName !== '' && $seasonName !== 'all') {
-            $season = SeasonModel::findByName($seasonName);
-            if (!$season) {
-                throw new HttpException(422, 'Choose a valid season');
+        [$seasonWhere, $seasonParams] = $this->seasonSql((string)($query['season'] ?? ''));
+        if ($seasonWhere !== '') {
+            $where[] = ltrim(substr($seasonWhere, 5));
+            foreach ($seasonParams as $seasonParam) {
+                $params[] = $seasonParam;
             }
-            $where[] = 'season_id = ?';
-            $params[] = (int)$season['id'];
         }
         $status = (string)($query['status'] ?? '');
         if (in_array($status, ['approved', 'pending'], true)) {
@@ -339,14 +380,11 @@ final class ReadModel
         }
         $seasonSql = '';
         $extra = '';
-        $seasonName = trim((string)($query['season'] ?? ''));
-        if ($seasonName !== '' && $seasonName !== 'all' && in_array($resource, ['usage', 'expenses', 'sales', 'advances'], true)) {
-            $season = SeasonModel::findByName($seasonName);
-            if (!$season) {
-                throw new HttpException(422, 'Choose a valid season');
+        if (in_array($resource, ['usage', 'expenses', 'sales', 'advances'], true)) {
+            [$seasonSql, $seasonParams] = $this->seasonSql((string)($query['season'] ?? ''), 'x.season_id');
+            foreach ($seasonParams as $seasonParam) {
+                $params[] = $seasonParam;
             }
-            $seasonSql = ' AND x.season_id = ?';
-            $params[] = (int)$season['id'];
         }
         $status = (string)($query['status'] ?? '');
         if (in_array($status, ['approved', 'pending'], true) && in_array($resource, ['usage', 'expenses', 'sales', 'advances'], true)) {
@@ -474,7 +512,8 @@ final class ReadModel
                 if ($wanted !== '' && $wanted !== $kind) {
                     continue;
                 }
-                $w = "status = 'pending'" . ($farmId === null ? '' : ' AND farm_id = ?');
+                [$approvalSeason, $approvalParams] = $this->seasonSql((string)($query['season'] ?? ''));
+                $w = "status = 'pending'" . ($farmId === null ? '' : ' AND farm_id = ?') . $approvalSeason;
                 $searchSql = '';
                 if ($q !== '') {
                     $searchSql = $kind === 'advances'
@@ -485,6 +524,9 @@ final class ReadModel
                 $countBits[] = "SELECT id FROM $table WHERE $w" . $searchSql;
                 if ($farmId !== null) {
                     $all[] = $farmId;
+                }
+                foreach ($approvalParams as $seasonParam) {
+                    $all[] = $seasonParam;
                 }
                 if ($q !== '') {
                     $all[] = $like;

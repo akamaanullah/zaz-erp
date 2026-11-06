@@ -56,22 +56,25 @@ async function allRows(query){
  }while(out.length<total&&guard<100);
  return out;
 }
-async function ledgerDetail(hariId,approvedOnly){
- const res=await fetch(base+'/api/ledger?hari='+encodeURIComponent(hariId)+'&approved='+(approvedOnly?'1':'0'),{credentials:'same-origin',headers:{Accept:'application/json'}});
+async function ledgerDetail(hariId,approvedOnly,season){
+ const q='hari='+encodeURIComponent(hariId)+'&approved='+(approvedOnly?'1':'0')+(season?'&season='+encodeURIComponent(season):'');
+ const res=await fetch(base+'/api/ledger?'+q,{credentials:'same-origin',headers:{Accept:'application/json'}});
  const data=await res.json().catch(()=>({error:'Ledger failed'}));
  if(!res.ok||data.ok===false)throw Error(data.error||'Ledger failed');
  return data.ledger;
 }
-const stat=farm=>{const b=db.summary&&db.summary.byFarm&&db.summary.byFarm[farm];return Object.assign({sales:0,saleCount:0,saleKg:0,hariShare:0,costs:0,usageCount:0,expenseCount:0,advances:0,advanceCount:0,pending:0},b||{})};
+function selectedSeason(){try{const saved=JSON.parse(localStorage.getItem('zaz_erp_mvc_ctx')||'{}');if(saved.season)return saved.season}catch(e){}return (db.seasons&&db.seasons[0])||''}
+function seasonPack(){const bag=db.summary&&db.summary.seasons&&db.summary.seasons[selectedSeason()];return bag||{byFarm:{},costCats:{},expenseCats:{},salesByCrop:{},hari:[]}}
+const stat=farm=>{const b=seasonPack().byFarm&&seasonPack().byFarm[farm];return Object.assign({sales:0,saleCount:0,saleKg:0,hariShare:0,costs:0,usageCount:0,expenseCount:0,advances:0,advanceCount:0,pending:0},b||{})};
 const stockCell=(farm,item)=>{const c=db.summary&&db.summary.stock&&db.summary.stock[farm]&&db.summary.stock[farm][item];return c||{sent:0,received:0,used:0,left:0,cost:0}};
 const farmQty=(farm,item)=>Number(stockCell(farm,item).left)||0;
 function stockByFarm(item){return farmNames().map(f=>{const c=stockCell(f,item);return {farm:f,sent:Number(c.sent)||0,received:Number(c.received)||0,used:Number(c.used)||0,left:Number(c.left)||0,cost:Number(c.cost)||0}})}
 const allExpenses=()=>[];
 const split=x=>x.target==='seri'?0:Number(x.share);
-function ledger(h,approvedOnly){const row=(db.summary&&db.summary.hari||[]).find(x=>String(x.id)===String(h.id));const bag=row?(approvedOnly?row.final:row.preview):{gross:0,ded:0,advance:0,balance:0};return {gross:Number(bag.gross)||0,ded:Number(bag.ded)||0,advance:Number(bag.advance)||0,balance:Number(bag.balance)||0,sales:[],cost:[],adv:[]}}
+function ledger(h,approvedOnly){const row=(seasonPack().hari||[]).find(x=>String(x.id)===String(h.id));const bag=row?(approvedOnly?row.final:row.preview):{gross:0,ded:0,advance:0,balance:0};return {gross:Number(bag.gross)||0,ded:Number(bag.ded)||0,advance:Number(bag.advance)||0,balance:Number(bag.balance)||0,sales:[],cost:[],adv:[]}}
 const hariAcres=h=>h.physicalAcres!=null?Number(h.physicalAcres):(h.alloc||[]).reduce((s,a)=>s+Number(a.acres),0);
 function pending(farm){const names=farm?[farm]:farmNames();const n=names.reduce((s,f)=>s+Number(stat(f).pending||0),0);return {length:n}}
 const can=ability=>(db.abilities||[]).includes(ability);
-window.Store={KEY:'zaz_erp_mvc',UNITS,WORK_TYPES,PAY_TYPES,MAUND_KG,ROLES,get SEASONS(){return seasons()},get ITEMS(){return items()},get FARMS(){return farmNames()},get db(){return db},api,ready,load,rows,allRows,ledgerDetail,can,sessionUser,getHari,godownQty,godownReceived,godownSent,farmQty,stockCell,stat,rate,allExpenses,split,ledger,hariAcres,pending,category,stockByFarm,kgOf,save(){},log(){}};
+window.Store={KEY:'zaz_erp_mvc',UNITS,WORK_TYPES,PAY_TYPES,MAUND_KG,ROLES,get SEASONS(){const list=seasons().slice();if(db.summary&&db.summary.seasons&&db.summary.seasons['No season']&&!list.includes('No season'))list.push('No season');return list},seasonPack,selectedSeason,get ITEMS(){return items()},get FARMS(){return farmNames()},get db(){return db},api,ready,load,rows,allRows,ledgerDetail,can,sessionUser,getHari,godownQty,godownReceived,godownSent,farmQty,stockCell,stat,rate,allExpenses,split,ledger,hariAcres,pending,category,stockByFarm,kgOf,save(){},log(){}};
 load();
 })();
