@@ -30,10 +30,7 @@ final class PeopleOps
             throw new HttpException(403, 'Only Owner can create Owner accounts.');
         }
         $name = Support::text($in, 'name', 80);
-        $username = trim((string)($in['username'] ?? ''));
-        if (!preg_match('/^[A-Za-z0-9._-]{3,30}$/', $username)) {
-            throw new HttpException(422, 'Username must be 3–30 letters, digits, dot, underscore or dash');
-        }
+        $username = $this->validUsername((string)($in['username'] ?? ''));
         if (UserModel::findByUsername($username)) {
             throw new HttpException(422, 'Username already exists.');
         }
@@ -117,6 +114,30 @@ final class PeopleOps
         $this->guardOwnerRecord($user, $target);
         UserModel::setFarm($id, (int)$farm['id']);
         Audit::add($user, 'employee.farm', 'Changed ' . $target['username'] . ' farm to ' . $farm['name'], (int)$farm['id']);
+    }
+
+    public function setUsername(array $user, array $in): void
+    {
+        Access::assert($user, 'admin.employees');
+        [$kind, $id] = $this->ref((string)($in['id'] ?? ''));
+        if ($kind !== 'user') {
+            throw new HttpException(422, 'Kamdar records do not have a username');
+        }
+        $target = UserModel::find($id);
+        if (!$target) {
+            throw new HttpException(404, 'Employee not found');
+        }
+        $this->guardOwnerRecord($user, $target);
+        $username = $this->validUsername((string)($in['username'] ?? ''));
+        $existing = UserModel::findByUsername($username);
+        if ($existing && (int)$existing['id'] !== $id) {
+            throw new HttpException(422, 'Username already exists.');
+        }
+        if (UserModel::normalize($target['username']) === $username) {
+            return;
+        }
+        UserModel::setUsername($id, $username);
+        Audit::add($user, 'employee.username', 'Username ' . $target['username'] . ' → ' . $username);
     }
 
     public function setSalary(array $user, array $in): void
@@ -203,6 +224,15 @@ final class PeopleOps
             HariModel::insertAllocation($newPlot, (int)$hari['id'], (int)$season['id'], $crop);
             Audit::add($user, 'hari.allocate', 'Added ' . $acres . ' ac ' . $crop . ' to Hari ' . $hari['name'], (int)$farm['id']);
         });
+    }
+
+    private function validUsername(string $username): string
+    {
+        $username = UserModel::normalize($username);
+        if (!preg_match('/^[a-z0-9._-]{3,30}$/', $username)) {
+            throw new HttpException(422, 'Username must be 3–30 letters, digits, dot, underscore or dash');
+        }
+        return $username;
     }
 
     private function guardOwnerRecord(array $actor, array $target): void

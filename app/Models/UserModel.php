@@ -12,9 +12,28 @@ final class UserModel extends Model
         return self::selectOne('SELECT * FROM users WHERE id = ?', [$id]);
     }
 
+    public static function normalize(string $username): string
+    {
+        $username = trim($username);
+        return mb_strtolower($username, 'UTF-8');
+    }
+
     public static function findByUsername(string $username): ?array
     {
-        return self::selectOne('SELECT * FROM users WHERE username = ?', [$username]);
+        $username = self::normalize($username);
+        if ($username === '') {
+            return null;
+        }
+        return self::selectOne('SELECT * FROM users WHERE LOWER(username) = ? LIMIT 1', [$username]);
+    }
+
+    public static function dummyHash(): string
+    {
+        static $hash = null;
+        if ($hash === null) {
+            $hash = password_hash('timing-equalizer', PASSWORD_BCRYPT);
+        }
+        return $hash;
     }
 
     public static function all(): array
@@ -39,6 +58,7 @@ final class UserModel extends Model
 
     public static function insert(string $name, string $username, string $hash, string $role, ?int $farmId, float $salary, string $payType): int
     {
+        $username = self::normalize($username);
         self::execute(
             'INSERT INTO users (name, username, password_hash, role, farm_id, salary, pay_type, is_active, created_at, updated_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, 1, NOW(), NOW())',
@@ -62,5 +82,10 @@ final class UserModel extends Model
     public static function setSalary(int $id, float $salary, string $payType): void
     {
         self::execute('UPDATE users SET salary = ?, pay_type = ?, updated_at = NOW() WHERE id = ?', [$salary, $payType, $id]);
+    }
+
+    public static function setUsername(int $id, string $username): void
+    {
+        self::execute('UPDATE users SET username = ?, updated_at = NOW() WHERE id = ?', [self::normalize($username), $id]);
     }
 }

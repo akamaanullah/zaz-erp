@@ -29,7 +29,7 @@ D:\xampp\php\php.exe database\migrate.php
 D:\xampp\php\php.exe database\seed.php
 ```
 
-`seed.php` loads sample farms and entries only when the user table is empty. It writes one-time local passwords to `storage/dev-credentials.local.txt`. That file is gitignored. Do not commit it.
+`seed.php` loads sample farms and entries only when the user table is empty. It writes one-time local passwords to `storage/dev-credentials.local.txt`. That file is gitignored. Do not commit it. Sign in with a username and password. The login page does not list accounts.
 
 ## Tests
 

@@ -29,21 +29,15 @@
   <form class="card" id="loginForm" method="post" action="<?= e($base) ?>/login" aria-labelledby="lt">
    <input type="hidden" name="_csrf" value="<?= e($csrf) ?>">
    <h2 id="lt" style="font-size:22px">Sign in</h2>
-   <p class="muted" style="margin:4px 0 18px">Welcome back — select your account to continue.</p>
-   <label for="loginUser">Employee account</label>
-   <div class="login-select"><svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg><select id="loginUser" name="username" required><?php foreach ($accounts as $account): ?><option value="<?= e($account['username']) ?>" data-hint="@<?= e($account['username']) ?> • <?= e($account['farm_name'] !== '' ? $account['farm_name'] : 'All farms') ?> access"><?= e($account['name']) ?> — <?= e($roles[$account['role']] ?? $account['role']) ?><?= $account['farm_name'] !== '' ? ' (' . e($account['farm_name']) . ')' : '' ?></option><?php endforeach; ?></select><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg></div>
-   <div class="role-hint" id="roleHint"></div>
-   <div style="margin-top:12px"><label for="pin">Password</label><div class="pin-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><input id="pin" name="password" type="password" autocomplete="current-password" placeholder="••••••••" maxlength="72" required></div></div>
+   <p class="muted" style="margin:4px 0 18px">Welcome back — sign in with your username and password.</p>
+   <label for="username">Username</label>
+   <div class="login-select"><svg class="lead" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg><input id="username" name="username" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" maxlength="30" required placeholder="Username"></div>
+   <div style="margin-top:12px"><label for="password">Password</label><div class="pin-wrap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg><input id="password" name="password" type="password" autocomplete="current-password" placeholder="••••••••" maxlength="72" required></div></div>
    <p id="loginMsg" class="neg small" role="alert" style="min-height:20px;margin:8px 0"><?= e($error) ?></p>
    <button class="btn" style="width:100%;padding:12px">Sign in</button>
-   <div class="demo-tip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg><span>Each account has its own password. Hari and Kamdar records do not sign in.</span></div>
+   <div class="demo-tip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg><span>Hari and Kamdar records do not sign in.</span></div>
   </form>
  </section>
 </div>
-<script>
-const sel=document.getElementById('loginUser'),hint=document.getElementById('roleHint');
-const upd=()=>{const o=sel.options[sel.selectedIndex];hint.textContent=o?o.getAttribute('data-hint')||'':''};
-sel.addEventListener('change',()=>{upd();document.getElementById('pin').focus()});upd();
-</script>
 </body>
 </html>

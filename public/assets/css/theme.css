@@ -110,8 +110,9 @@ a{color:var(--primary)}[data-theme="dark"] a{color:var(--accent)}
 .pos{color:#0b6158}[data-theme="dark"] .pos{color:#5fd4c4}
 .brand img{background:#0b1530;object-fit:contain}
 .login-hero img{background:transparent;padding:0;width:120px;border-radius:24px;box-shadow:0 10px 30px -10px rgba(0,0,0,.6)}
-.login-select{position:relative}.login-select select{appearance:none;-webkit-appearance:none;padding:13px 44px 13px 46px;font-weight:600;background:var(--surface-2);border:1.5px solid var(--border);cursor:pointer}
-.login-select select:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(217,154,30,.18)}
+.login-select{position:relative}.login-select select,.login-select input{appearance:none;-webkit-appearance:none;padding:13px 16px 13px 46px;font-weight:600;background:var(--surface-2);border:1.5px solid var(--border)}
+.login-select select{padding-right:44px;cursor:pointer}
+.login-select select:focus,.login-select input:focus{border-color:var(--accent);box-shadow:0 0 0 4px rgba(217,154,30,.18)}
 .login-select .lead{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:20px;color:var(--accent-700);pointer-events:none}
 .login-select .chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:18px;color:var(--muted);pointer-events:none}
 .pin-wrap{position:relative}.pin-wrap input{padding-left:46px;letter-spacing:.3em;font-weight:700;background:var(--surface-2);border-width:1.5px}.pin-wrap svg{position:absolute;left:14px;top:50%;transform:translateY(-50%);width:20px;color:var(--accent-700)}

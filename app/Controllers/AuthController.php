@@ -8,12 +8,13 @@ use App\Core\Controller;
 use App\Core\Request;
 use App\Core\Response;
 use App\Core\Session;
-use App\Models\CatalogModel;
-use App\Models\FarmModel;
+use App\Models\LoginAttemptModel;
 use App\Models\UserModel;
 
 final class AuthController extends Controller
 {
+    public const GENERIC_ERROR = 'Invalid username or password.';
+
     public function home(Request $request): Response
     {
         if ($this->user()) {
@@ -24,36 +25,30 @@ final class AuthController extends Controller
 
     public function showLogin(Request $request): Response
     {
-        $farmNames = [];
-        foreach (FarmModel::all() as $farm) {
-            $farmNames[(int)$farm['id']] = $farm['name'];
-        }
-        $accounts = [];
-        foreach (UserModel::all() as $row) {
-            if (!(int)$row['is_active']) {
-                continue;
-            }
-            $row['farm_name'] = $farmNames[(int)$row['farm_id']] ?? '';
-            $accounts[] = $row;
-        }
         return $this->view('auth/login', [
-            'accounts' => $accounts,
-            'roles' => CatalogModel::ROLES,
             'error' => Session::pullFlash('error'),
         ]);
     }
 
     public function login(Request $request): Response
     {
-        $username = trim((string)$request->input('username', ''));
+        $username = UserModel::normalize((string)$request->input('username', ''));
         $password = (string)$request->input('password', '');
-        $user = UserModel::findByUsername($username);
-        $hash = $user['password_hash'] ?? '$2y$10$invalidinvalidinvalidinvalidinvalidinvalidinvalidinv';
-        $ok = $user && (int)$user['is_active'] === 1 && password_verify($password, (string)$hash);
-        if (!$ok) {
-            Session::flash('error', 'Incorrect password or inactive account.');
+        $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45);
+        if (LoginAttemptModel::tooMany($ip)) {
+            Session::flash('error', self::GENERIC_ERROR);
             return $this->redirect('/login');
         }
+        $user = $username === '' ? null : UserModel::findByUsername($username);
+        $hash = is_array($user) ? (string)$user['password_hash'] : UserModel::dummyHash();
+        $verified = $password !== '' && password_verify($password, $hash);
+        $active = is_array($user) && (int)$user['is_active'] === 1;
+        if (!$verified || !$active) {
+            LoginAttemptModel::add($ip);
+            Session::flash('error', self::GENERIC_ERROR);
+            return $this->redirect('/login');
+        }
+        LoginAttemptModel::clear($ip);
         Session::regenerate();
         Session::put('user_id', (int)$user['id']);
         Session::forget('_csrf');

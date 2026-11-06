@@ -20,10 +20,12 @@ use App\Core\Csrf;
 use App\Core\Database;
 use App\Core\Kernel;
 use App\Core\Session;
+use App\Controllers\AuthController;
 use App\Models\AccountModel;
 use App\Models\CatalogModel;
 use App\Models\FarmModel;
 use App\Models\HariModel;
+use App\Models\LoginAttemptModel;
 use App\Models\SeasonModel;
 use App\Models\StockModel;
 use App\Models\UserModel;
@@ -155,20 +157,102 @@ $app = asUser($owner);
 $noCsrf = call($app, 'POST', '/api/settings/prefs', ['theme' => 'dark', 'language' => 'en'], false);
 expect($noCsrf->status === 419, 'missing CSRF token is rejected');
 
+$page = kernel()->handle('GET', '/login');
+expect($page->status === 200 && !str_contains($page->body, '<select') && !str_contains($page->body, 'sup.a') && str_contains($page->body, 'autocomplete="username"') && str_contains($page->body, 'autocomplete="current-password"'), 'login form is username and password with no account list');
+$missingCsrf = kernel();
+$beforeRegen = Session::regenerations();
+$csrfFail = $missingCsrf->handle('POST', '/login', http_build_query([
+    'username' => 'owner',
+    'password' => $secrets['owner'],
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+expect($csrfFail->status === 419 && Session::get('user_id') === null && Session::regenerations() === $beforeRegen, 'login without CSRF does not start a session');
+
 $login = kernel();
 $token = Csrf::token();
 $bad = $login->handle('POST', '/login', http_build_query([
     'username' => 'owner',
     'password' => 'wrong-password',
+    'role' => 'owner',
+    'id' => (string)$owner,
     '_csrf' => $token,
 ]), ['Content-Type' => 'application/x-www-form-urlencoded']);
-expect($bad->status === 302 && str_contains($bad->headers['Location'] ?? '', '/login'), 'wrong password does not sign in');
-$good = $login->handle('POST', '/login', http_build_query([
+$wrongPassword = Session::pullFlash('error');
+expect($bad->status === 302 && str_contains($bad->headers['Location'] ?? '', '/login') && Session::get('user_id') === null, 'wrong password does not sign in');
+$unknown = kernel();
+$unknown->handle('POST', '/login', http_build_query([
+    'username' => 'not-a-user',
+    'password' => 'wrong-password',
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+$wrongUser = Session::pullFlash('error');
+expect($wrongPassword === AuthController::GENERIC_ERROR && $wrongUser === $wrongPassword, 'unknown username and wrong password share one error');
+UserModel::setActive($accA, 0);
+$disabled = kernel();
+$disabled->handle('POST', '/login', http_build_query([
+    'username' => 'acc.a',
+    'password' => $secrets['acc.a'],
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+expect(Session::pullFlash('error') === AuthController::GENERIC_ERROR && Session::get('user_id') === null, 'disabled account gets the same generic failure');
+UserModel::setActive($accA, 1);
+
+foreach ([
+    ['owner', 'owner', ''],
+    ['office', 'office', ''],
+    ['sup.a', 'supervisor', 'Farm A'],
+    ['acc.a', 'accountant', 'Farm A'],
+] as [$loginName, $role, $farm]) {
+    $app = kernel();
+    $before = Session::regenerations();
+    $res = $app->handle('POST', '/login', http_build_query([
+        'username' => strtoupper($loginName),
+        'password' => $secrets[$loginName],
+        'role' => 'owner',
+        'farm' => 'Farm B',
+        'id' => (string)$owner,
+        '_csrf' => Csrf::token(),
+    ]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+    $boot = json_decode($app->handle('GET', '/api/bootstrap', null, ['Accept' => 'application/json'])->body, true);
+    $me = $boot['db']['me'] ?? [];
+    $scopeOk = $role === 'owner' || $role === 'office'
+        ? count($boot['db']['farms'] ?? []) > 1
+        : ($me['farm'] ?? '') === $farm && ($boot['db']['farms'][0]['name'] ?? '') === $farm;
+    expect($res->status === 302 && str_contains($res->headers['Location'] ?? '', '/dashboard') && ($me['role'] ?? '') === $role && $scopeOk && Session::regenerations() === $before + 1, $role . ' signs in from username and keeps stored scope');
+}
+$dup = asUser($owner);
+$taken = call($dup, 'POST', '/api/employees/create', [
+    'name' => 'Copy', 'username' => 'OWNER', 'role' => 'office', 'salary' => 0, 'payType' => 'Monthly salary',
+]);
+expect($taken->status === 422, 'username uniqueness ignores case');
+$made = call($dup, 'POST', '/api/employees/create', [
+    'name' => 'Case User', 'username' => 'Case.User', 'role' => 'office', 'salary' => 0, 'payType' => 'Monthly salary',
+]);
+$madeBody = json_decode($made->body, true);
+$temp = (string)($madeBody['temporaryPassword'] ?? '');
+expect($made->status === 200 && UserModel::findByUsername('case.user') !== null, 'new usernames are stored in lowercase');
+$renameClash = call($dup, 'POST', '/api/employees/username', ['id' => (string)UserModel::findByUsername('case.user')['id'], 'username' => 'Office']);
+expect($renameClash->status === 422, 'renaming onto an existing username is rejected');
+$renamed = call($dup, 'POST', '/api/employees/username', ['id' => (string)UserModel::findByUsername('case.user')['id'], 'username' => 'case.user2']);
+expect($renamed->status === 200 && UserModel::findByUsername('case.user') === null, 'username can be edited when it is unique');
+$samePass = kernel();
+$same = $samePass->handle('POST', '/login', http_build_query([
+    'username' => 'CASE.USER2',
+    'password' => $temp,
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+expect($temp !== '' && $same->status === 302 && (Session::get('user_id') !== null), 'renamed account keeps its existing password');
+LoginAttemptModel::clear('127.0.0.1');
+for ($i = 0; $i < LoginAttemptModel::LIMIT; $i++) {
+    LoginAttemptModel::add('127.0.0.1');
+}
+$throttled = kernel();
+$blocked = $throttled->handle('POST', '/login', http_build_query([
     'username' => 'owner',
     'password' => $secrets['owner'],
     '_csrf' => Csrf::token(),
 ]), ['Content-Type' => 'application/x-www-form-urlencoded']);
-expect($good->status === 302 && str_contains($good->headers['Location'] ?? '', '/dashboard'), 'correct password signs in');
+expect($blocked->status === 302 && Session::get('user_id') === null && Session::pullFlash('error') === AuthController::GENERIC_ERROR, 'too many attempts uses the same generic failure');
+LoginAttemptModel::clear('127.0.0.1');
 
 $app = asUser($office);
 $createOwner = call($app, 'POST', '/api/employees/create', [

@@ -56,6 +56,9 @@ final class ApiController extends Controller
             case 'employees/farm':
                 (new PeopleOps())->setFarm($user, $in);
                 break;
+            case 'employees/username':
+                (new PeopleOps())->setUsername($user, $in);
+                break;
             case 'employees/salary':
                 (new PeopleOps())->setSalary($user, $in);
                 break;

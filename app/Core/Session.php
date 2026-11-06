@@ -6,6 +6,7 @@ namespace App\Core;
 final class Session
 {
     private static bool $started = false;
+    private static int $regenerations = 0;
     /** @var array<string,mixed> */
     private static array $test = [];
 
@@ -71,10 +72,16 @@ final class Session
     public static function regenerate(): void
     {
         self::start();
+        self::$regenerations++;
         if (self::isTest()) {
             return;
         }
         session_regenerate_id(true);
+    }
+
+    public static function regenerations(): int
+    {
+        return self::$regenerations;
     }
 
     public static function destroy(): void

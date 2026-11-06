@@ -8,6 +8,7 @@
 /storage/dev-credentials.local.txt
 /storage/tmp-browser/
 /storage/tmp-browser-mvc/
+/storage/tmp-browser-login/
 /storage/screenshots/
 /vendor/
 .DS_Store
