@@ -52,7 +52,16 @@ function modal({title,body,submit='Save',cancel='Cancel',danger=false,onSubmit,w
   back.addEventListener('mousedown',e=>{if(e.target===back)close(null)});$$('[data-close]',back).forEach(b=>b.onclick=()=>close(null));
   f.onsubmit=async e=>{e.preventDefault();if(!f.checkValidity()){f.reportValidity();return}const data=Object.fromEntries(new FormData(f).entries());
    if(onSubmit){try{const r=await onSubmit(data,f);if(r===false)return}catch(err){toast(err.message||'Request failed','error');return}}close(data||true)};
-  setTimeout(()=>{const el=f.querySelector('.body input,.body select,.body textarea')||f.querySelector('footer .btn:last-child');el&&el.focus()},30)})}
+  const focusInitial=()=>{
+    if(!f.isConnected)return;
+    const active=document.activeElement;
+    if(active&&active!==f&&f.contains(active))return;
+    const el=f.querySelector('.body input:not([type=hidden]),.body select,.body textarea')||f.querySelector('footer .btn:last-child');
+    if(el)el.focus();
+   };
+   const focusTimer=setTimeout(focusInitial,30);
+   f.addEventListener('focusin',e=>{if(e.target!==f)clearTimeout(focusTimer)});
+  })}
 const confirmBox=(msg,{title='Please confirm',ok='Confirm',danger=true}={})=>modal({title,body:`<p style="margin:0">${esc(msg)}</p>`,submit:ok,danger}).then(Boolean);
 
 /* ---------- form fields ---------- */

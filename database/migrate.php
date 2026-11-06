@@ -10,7 +10,7 @@ function zaz_migrate(): void
 {
     $cfg = config()['db'];
     $name = (string)$cfg['name'];
-    if (!in_array($name, ['zaz_agriculture', 'zaz_agriculture_test', 'zaz_agriculture_e2e'], true)) {
+    if (!in_array($name, ['zaz_agriculture', 'zaz_agriculture_test', 'zaz_agriculture_e2e', 'zaz_agriculture_perf'], true)) {
         fwrite(STDERR, "Refusing to migrate database '{$name}'.\n");
         exit(1);
     }

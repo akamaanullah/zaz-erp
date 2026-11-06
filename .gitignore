@@ -6,6 +6,7 @@
 /storage/sessions/*
 !/storage/sessions/.gitkeep
 /storage/dev-credentials.local.txt
+/storage/e2e-run.json
 /storage/tmp-browser*/
 /storage/screenshots/
 /vendor/

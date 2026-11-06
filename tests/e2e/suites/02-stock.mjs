@@ -1,0 +1,138 @@
+import { api, loadState, openSession, runSuite, saveState, shot, submitAction, submitModal, toastText } from '../lib.mjs';
+
+const state = await loadState();
+const originOf = (page) => new URL(page.url()).origin;
+
+await runSuite('02-stock', async ({ check, browser, bucket }) => {
+  const office = await openSession(browser, 'office', state.password, bucket);
+  await check('office receives godown stock and dispatches 20', async () => {
+    const origin = originOf(office.page);
+    await office.page.goto(origin + '/godown', { waitUntil: 'domcontentloaded' });
+    await office.page.click('#add');
+    await office.page.selectOption('[name=Item]', 'Urea');
+    await office.page.fill('[name=Quantity]', '100');
+    await office.page.fill('[name=Rate]', '10.50');
+    await submitModal(office.page, 'Receive into godown');
+    await toastText(office.page);
+    await office.page.goto(origin + '/transfers', { waitUntil: 'domcontentloaded' });
+    await office.page.click('#send');
+    await office.page.selectOption('[name=Farm]', { label: 'E2E North' });
+    await office.page.selectOption('[name=Item]', 'Urea');
+    await office.page.fill('[name=Quantity]', '20');
+    await submitModal(office.page, 'Send stock');
+    await toastText(office.page);
+    const denied = await api(office.page, 'POST', '/api/transfers/receive', { id: 1, qty: 18 });
+    if (denied.status !== 403) throw new Error('office receive status ' + denied.status);
+  });
+  await office.close();
+
+  const supervisor = await openSession(browser, state.supervisor.username, state.supervisor.password, bucket);
+  await check('supervisor records 18 received and a second receive is rejected', async () => {
+    const origin = originOf(supervisor.page);
+    await supervisor.page.goto(origin + '/transfers', { waitUntil: 'domcontentloaded' });
+    await supervisor.page.waitForSelector('[data-receive]');
+    const id = await supervisor.page.locator('[data-receive]').first().getAttribute('data-receive');
+    await supervisor.page.locator('[data-receive]').first().click();
+    await supervisor.page.fill('[name=q]', '18');
+    await submitModal(supervisor.page, 'Confirm received');
+    await toastText(supervisor.page);
+    await supervisor.page.reload({ waitUntil: 'domcontentloaded' });
+    await supervisor.page.waitForSelector('#t tbody tr', { timeout: 15000 });
+    const text = await supervisor.page.locator('#t tbody').innerText();
+    if (!text.includes('18')) throw new Error(text.slice(0, 220));
+    const again = await api(supervisor.page, 'POST', '/api/transfers/receive', { id, qty: 18 });
+    if (again.status !== 409) throw new Error('duplicate receive status ' + again.status);
+    await shot(supervisor.page, 'e2e-receive-18.png');
+  });
+  await check('supervisor has no Hari add button and can submit daily work', async () => {
+    const origin = originOf(supervisor.page);
+    await supervisor.page.goto(origin + '/hari', { waitUntil: 'domcontentloaded' });
+    if (await supervisor.page.locator('#add').count()) throw new Error('supervisor can open Add Hari');
+    await supervisor.page.goto(origin + '/daily', { waitUntil: 'domcontentloaded' });
+    await supervisor.page.click('#add');
+    await supervisor.page.selectOption('[name=type]', { label: 'Irrigation' });
+    await supervisor.page.fill('[name=desc]', 'Watered the north block');
+    await submitAction(supervisor.page, 'Submit update', '/api/daily/create');
+    await supervisor.page.reload({ waitUntil: 'domcontentloaded' });
+    await supervisor.page.getByText('Watered the north block').waitFor({ timeout: 15000 });
+  });
+  await check('supervisor records Seri usage at the godown rate', async () => {
+    const origin = originOf(supervisor.page);
+    await supervisor.page.goto(origin + '/usage', { waitUntil: 'domcontentloaded' });
+    await supervisor.page.click('#add');
+    await supervisor.page.selectOption('[name=Item]', 'Urea');
+    await supervisor.page.selectOption('[name=Target]', 'seri');
+    await supervisor.page.fill('[name=Crop]', 'Seri');
+    await supervisor.page.fill('[name=Quantity]', '5');
+    await submitModal(supervisor.page, 'Record usage');
+    await toastText(supervisor.page);
+    await supervisor.page.reload({ waitUntil: 'domcontentloaded' });
+    await supervisor.page.fill('#h input[type=search]', 'Seri');
+    await supervisor.page.waitForTimeout(600);
+    const text = await supervisor.page.locator('#h').innerText();
+    if (!text.includes('52.5') && !text.includes('52.50')) throw new Error(text.slice(0, 220));
+    if (!text.includes('Pending')) throw new Error('supervisor usage was not pending');
+  });
+  await supervisor.close();
+
+  const accountant = await openSession(browser, state.accountant.username, state.accountant.password, bucket);
+  await check('accountant is blocked from receiving and from daily-work submit', async () => {
+    const origin = originOf(accountant.page);
+    await accountant.page.goto(origin + '/transfers', { waitUntil: 'domcontentloaded' });
+    if (await accountant.page.locator('[data-receive]').count()) throw new Error('accountant sees Receive');
+    const receive = await api(accountant.page, 'POST', '/api/transfers/receive', { id: 1, qty: 1 });
+    if (receive.status !== 403) throw new Error('accountant receive status ' + receive.status);
+    await accountant.page.goto(origin + '/daily', { waitUntil: 'domcontentloaded' });
+    if (await accountant.page.locator('#add').count()) throw new Error('accountant can submit daily work');
+    const daily = await api(accountant.page, 'POST', '/api/daily/create', { farm: 'E2E North', date: '2026-11-06', type: 'Irrigation', desc: 'nope' });
+    if (daily.status !== 403) throw new Error('accountant daily status ' + daily.status);
+  });
+  await check('26 acres is rejected and a Hari name is stored as text', async () => {
+    const origin = originOf(accountant.page);
+    await accountant.page.goto(origin + '/hari', { waitUntil: 'domcontentloaded' });
+    await accountant.page.click('#add');
+    await accountant.page.fill('[name=Name]', 'Too Big');
+    await accountant.page.fill('[name=Address]', 'North');
+    await accountant.page.fill('[name=Acres]', '26');
+    await accountant.page.fill('[name=Crop]', 'Wheat');
+    await accountant.page.locator('form.modal').getByRole('button', { name: 'Add Hari', exact: true }).click();
+    const err = await accountant.page.locator('[name=Acres]').evaluate((el) => el.validationMessage);
+    if (!/25|less than or equal/i.test(err)) throw new Error(err || '26 acres was accepted by the form');
+    if (await accountant.page.locator('form.modal').count() !== 1) throw new Error('validation closed the dialog');
+    const server = await api(accountant.page, 'POST', '/api/hari/create', { farm: 'E2E North', name: 'Too Big', address: 'North', acres: 26, crop: 'Wheat', season: 'Kharif 2026' });
+    if (server.status !== 422) throw new Error('server acres status ' + server.status);
+    await accountant.page.fill('[name=Address]', 'North');
+    await accountant.page.fill('[name=Crop]', 'Wheat');
+    const payload = '<img src=x onerror=alert(1)>';
+    await accountant.page.fill('[name=Name]', payload);
+    await accountant.page.fill('[name=Acres]', '10');
+    await submitModal(accountant.page, 'Add Hari');
+    await toastText(accountant.page);
+    const text = await accountant.page.locator('#t').innerText();
+    const html = await accountant.page.locator('#t').innerHTML();
+    if (!text.includes(payload)) throw new Error('name was not shown as text');
+    if (html.includes('<img src=x')) throw new Error('raw image tag in the table');
+    state.hari = payload;
+    await saveState(state);
+  });
+  await check('accountant records Hari usage against the same snapshot rate', async () => {
+    const origin = originOf(accountant.page);
+    await accountant.page.goto(origin + '/usage', { waitUntil: 'domcontentloaded' });
+    await accountant.page.click('#add');
+    await accountant.page.selectOption('[name=Item]', 'Urea');
+    const options = await accountant.page.locator('[name=Target] option').allTextContents();
+    const hari = options.find((label) => label.includes('img') || label.includes('onerror'));
+    if (!hari) throw new Error('Hari target missing: ' + options.join('|').slice(0, 160));
+    await accountant.page.selectOption('[name=Target]', { label: hari });
+    await accountant.page.fill('[name=Crop]', 'Wheat');
+    await accountant.page.fill('[name=Quantity]', '2');
+    await submitModal(accountant.page, 'Record usage');
+    await toastText(accountant.page);
+    await accountant.page.reload({ waitUntil: 'domcontentloaded' });
+    await accountant.page.fill('#h input[type=search]', 'Wheat');
+    await accountant.page.waitForTimeout(600);
+    const text = await accountant.page.locator('#h').innerText();
+    if (!text.includes('21') || !text.includes('Pending')) throw new Error(text.slice(0, 220));
+  });
+  await accountant.close();
+});

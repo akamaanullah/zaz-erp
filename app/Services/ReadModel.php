@@ -496,12 +496,11 @@ final class ReadModel
             if (!$bits) {
                 return ['SELECT 1 WHERE 0', 'SELECT 0 c', [], fn (): array => []];
             }
-            $sql = 'SELECT * FROM (' . implode(' UNION ALL ', $bits) . ') t' . $ord;
+            $sql = 'SELECT t.*, f.name AS farm_name FROM (' . implode(' UNION ALL ', $bits) . ') t JOIN farms f ON f.id = t.farm_id' . $ord;
             $count = 'SELECT COUNT(*) c FROM (' . implode(' UNION ALL ', $countBits) . ') t';
             return [$sql, $count, $all, function (array $row): array {
-                $farm = FarmModel::find((int)$row['farm_id']);
                 return [
-                    '_t' => $row['kind'], 'id' => (string)$row['id'], 'farm' => $farm['name'] ?? '',
+                    '_t' => $row['kind'], 'id' => (string)$row['id'], 'farm' => (string)($row['farm_name'] ?? ''),
                     'item' => $row['label'], 'category' => $row['label'], 'crop' => (string)($row['crop'] ?? $row['label']), 'reason' => $row['label'],
                     'amount' => $row['amount'] === null ? null : num($row['amount']),
                     'qty' => isset($row['qty']) ? num($row['qty']) : null,
@@ -579,7 +578,7 @@ final class ReadModel
             'receipts' => ['id' => 'id', 'qty' => 'qty', 'date' => 'received_on'],
             'daily' => ['id' => 'x.id', 'date' => 'x.occurred_at'],
             'audit' => ['id' => 'id', 'date' => 'created_at'],
-            'approvals' => ['id' => 'id', 'amount' => 'amount'],
+            'approvals' => ['id' => 't.id', 'amount' => 't.amount'],
             'salaries' => ['id' => 'p.id', 'amount' => 'p.amount'],
         ];
         $col = $maps[$resource][$sort] ?? $maps[$resource]['id'];
