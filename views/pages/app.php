@@ -12,10 +12,11 @@
 <link rel="stylesheet" href="<?= e($base) ?>/assets/css/components.css">
 <link rel="stylesheet" href="<?= e($base) ?>/assets/css/theme.css">
 <link rel="stylesheet" href="<?= e($base) ?>/assets/css/print.css">
+<meta name="zaz-base" content="<?= e($base) ?>">
+<meta name="zaz-csrf" content="<?= e($csrf) ?>">
 </head>
 <body>
 <noscript><p style="padding:20px">This application needs JavaScript enabled.</p></noscript>
-<script>window.ZAZ_BASE=<?= json_encode($base, JSON_UNESCAPED_SLASHES) ?>;window.ZAZ_CSRF=<?= json_encode($csrf) ?>;</script>
 <script src="<?= e($base) ?>/assets/js/utils.js"></script>
 <script src="<?= e($base) ?>/assets/js/store.js"></script>
 <script src="<?= e($base) ?>/assets/js/app.js"></script>

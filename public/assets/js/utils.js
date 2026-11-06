@@ -68,7 +68,9 @@ const formGrid=fields=>`<div class="form-grid">${fields.map(field).join('')}</di
 const empty=(title,text='',ic='empty')=>`<div class="empty">${icon(ic)}<b>${esc(title)}</b>${esc(text)}</div>`;
 
 /* ---------- data table (search, filters, sort) ---------- */
-function dataTable(el,{columns,rows,search=true,filters=[],emptyTitle='No records yet',emptyText='',footer=null,pageSize=0}){
+function dataTable(el,opts){
+ if(opts&&opts.server)return serverTable(el,opts);
+ const {columns,rows,search=true,filters=[],emptyTitle='No records yet',emptyText='',footer=null}=opts;
  const st={q:'',sort:null,dir:1,f:{}};
  const val=(c,r)=>c.value?c.value(r):(c.key?r[c.key]:'');
  el.innerHTML=`<div class="toolbar">${search?`<div class="search">${icon('search')}<input type="search" placeholder="Search…" aria-label="Search table"></div>`:''}${filters.map((fl,i)=>`<select data-fi="${i}" aria-label="${esc(fl.label)}"><option value="">${esc(fl.label)}: All</option>${fl.options.map(o=>`<option>${esc(o)}</option>`).join('')}</select>`).join('')}</div><div class="table-wrap"></div><div class="table-meta"></div>`;
@@ -83,6 +85,32 @@ function dataTable(el,{columns,rows,search=true,filters=[],emptyTitle='No record
   $$('th.sortable',wrap).forEach(th=>{const go=()=>{const i=+th.dataset.ci;if(st.sort===i)st.dir*=-1;else{st.sort=i;st.dir=1}draw()};th.onclick=go;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}}})}
  const s=$('input[type=search]',el);if(s)s.oninput=()=>{st.q=s.value.trim().toLowerCase();draw()};
  $$('select[data-fi]',el).forEach(x=>x.onchange=()=>{st.f[x.dataset.fi]=x.value;draw()});
+ draw();return {redraw:draw}}
+
+function serverTable(el,{columns,server,search=true,filters=[],emptyTitle='No records yet',emptyText='',footer=null}){
+ const st={q:'',page:1,dir:'desc',sort:'id',f:{},drawn:false};
+ el.innerHTML=`<div class="toolbar">${search?`<div class="search">${icon('search')}<input type="search" placeholder="Search…" aria-label="Search table"></div>`:''}${filters.map((fl,i)=>`<select data-fi="${i}" aria-label="${esc(fl.label)}"><option value="">${esc(fl.label)}: All</option>${fl.options.map(o=>{const [v,l]=Array.isArray(o)?o:[o,o];return `<option value="${esc(v)}">${esc(l)}</option>`}).join('')}</select>`).join('')}</div><div class="table-wrap"></div><div class="pager"></div><div class="table-meta"></div>`;
+ const wrap=$('.table-wrap',el),meta=$('.table-meta',el),pager=$('.pager',el);
+ let inflight=0;
+ const val=(c,r)=>c.value?c.value(r):(c.key?r[c.key]:'');
+ async function draw(){
+  const mine=++inflight;
+  const query={resource:server.resource,page:st.page,per:25,q:st.q,dir:st.dir,sort:st.sort,farm:server.farm||'',season:server.season||''};
+  filters.forEach((fl,i)=>{if(st.f[i]&&fl.key)query[fl.key]=st.f[i]});
+  let data;
+  try{data=await Store.rows(query)}catch(err){if(mine===inflight){wrap.innerHTML=empty('Could not load records',err.message||'');meta.textContent='';pager.innerHTML=''}return}
+  if(mine!==inflight)return;
+  const rs=data.rows||[],total=Number(data.total)||0,per=Number(data.per)||25,page=Number(data.page)||1,pages=Math.max(1,Math.ceil(total/per));
+  if(!total){wrap.innerHTML=empty(emptyTitle,emptyText);meta.textContent='Showing 0 of 0 records';pager.innerHTML='';el.dispatchEvent(new CustomEvent('tabledraw',{bubbles:true}));return}
+  wrap.innerHTML=`<table><thead><tr>${columns.map((c,i)=>`<th class="${c.sort===false?'':'sortable'} ${c.num?'num':''}" data-ci="${i}" ${c.sort===false?'':`tabindex="0" aria-sort="${st.sort===(c.sortKey||'id')?(st.dir==='asc'?'ascending':'descending'):'none'}"`}>${esc(c.label)}${st.sort===(c.sortKey||'id')?`<span class="arr">${st.dir==='asc'?'▲':'▼'}</span>`:''}</th>`).join('')}</tr></thead><tbody>${rs.map(r=>`<tr>${columns.map(c=>`<td class="${c.num?'num':''}">${c.html?c.html(r):esc(val(c,r))}</td>`).join('')}</tr>`).join('')}</tbody>${footer?`<tfoot><tr>${footer(data).map((x,i)=>`<td class="${columns[i]?.num?'num':''}">${x}</td>`).join('')}</tr></tfoot>`:''}</table>`;
+  meta.textContent=`Showing ${rs.length} on this page • ${total} matching record${total===1?'':'s'}`;
+  pager.innerHTML=pages>1?`<button type="button" class="btn secondary sm" data-pg="prev" ${page<=1?'disabled':''}>Previous</button> <span class="muted small">Page ${page} of ${pages}</span> <button type="button" class="btn secondary sm" data-pg="next" ${page>=pages?'disabled':''}>Next</button>`:'';
+  $$('th.sortable',wrap).forEach(th=>{const go=()=>{const i=+th.dataset.ci,key=columns[i].sortKey||'id';if(st.sort===key)st.dir=st.dir==='asc'?'desc':'asc';else{st.sort=key;st.dir='asc'}st.page=1;draw()};th.onclick=go;th.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();go()}}});
+  $$('[data-pg]',pager).forEach(b=>b.onclick=()=>{if(b.disabled)return;st.page=b.dataset.pg==='prev'?st.page-1:st.page+1;draw()});
+  el.dispatchEvent(new CustomEvent('tabledraw',{bubbles:true}));
+ }
+ const s=$('input[type=search]',el);if(s)s.oninput=()=>{st.q=s.value.trim();st.page=1;clearTimeout(st.timer);st.timer=setTimeout(draw,250)};
+ $$('select[data-fi]',el).forEach(x=>x.onchange=()=>{st.f[x.dataset.fi]=x.value;st.page=1;draw()});
  draw();return {redraw:draw}}
 
 /* ---------- SVG charts ---------- */

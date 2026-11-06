@@ -11,6 +11,7 @@ use App\Services\AccountOps;
 use App\Services\FarmOps;
 use App\Services\OfficeOps;
 use App\Services\PeopleOps;
+use App\Services\ReadModel;
 use App\Services\Snapshot;
 use App\Services\StockOps;
 use App\Services\TotpOps;
@@ -20,6 +21,19 @@ final class ApiController extends Controller
     public function bootstrap(Request $request): Response
     {
         return $this->json(['ok' => true, 'db' => (new Snapshot())->forUser($this->user())]);
+    }
+
+    public function table(Request $request): Response
+    {
+        $data = (new ReadModel())->table($this->user(), $request->query);
+        return $this->json(['ok' => true] + $data);
+    }
+
+    public function ledger(Request $request): Response
+    {
+        $hariId = (int)($request->query['hari'] ?? 0);
+        $approved = (string)($request->query['approved'] ?? '') === '1';
+        return $this->json(['ok' => true, 'ledger' => (new ReadModel())->ledger($this->user(), $hariId, $approved)]);
     }
 
     public function backup(Request $request): Response

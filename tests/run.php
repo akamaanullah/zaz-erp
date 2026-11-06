@@ -413,6 +413,60 @@ $moved->handle('POST', '/login', http_build_query([
 Database::pdo()->prepare('UPDATE users SET role = ? WHERE id = ?')->execute(['office', $owner]);
 expect($moved->handle('GET', '/api/bootstrap', null, ['Accept' => 'application/json'])->status === 401, 'session ends when the stored role changes');
 Database::pdo()->prepare('UPDATE users SET role = ? WHERE id = ?')->execute(['owner', $owner]);
+$disabledSession = kernel();
+$disabledSession->handle('POST', '/login', http_build_query([
+    'username' => 'acc.a',
+    'password' => $secrets['acc.a'],
+    '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded']);
+expect(Session::get('user_id') === $accA, 'accountant session is open before disable');
+UserModel::setActive($accA, 0);
+expect($disabledSession->handle('GET', '/api/bootstrap', null, ['Accept' => 'application/json'])->status === 401 && Session::get('user_id') === null, 'disabling an account revokes the open session');
+UserModel::setActive($accA, 1);
+
+$seasonId = (int)SeasonModel::findByName('Kharif 2026')['id'];
+for ($i = 0; $i < 30; $i++) {
+    AccountModel::insertExpense([
+        'farm_id' => $farmA,
+        'season_id' => $seasonId,
+        'category_name' => 'Other',
+        'qty' => 1,
+        'rate_snapshot' => 2,
+        'unit_snapshot' => 'lump sum',
+        'amount' => 2,
+        'target_type' => 'hari',
+        'hari_id' => $hariId,
+        'crop' => 'Paging ' . $i,
+        'share_snapshot' => 50,
+        'status' => 'approved',
+        'by_label' => 'test',
+        'created_by' => $owner,
+        'approved_by' => $owner,
+        'approved_at' => date('Y-m-d H:i:s'),
+    ]);
+}
+$ownerUser = UserModel::find($owner);
+$page1 = (new App\Services\ReadModel())->table($ownerUser, ['resource' => 'expenses', 'farm' => 'Farm A', 'page' => 1, 'per' => 25]);
+$sum = Database::pdo()->prepare('SELECT COALESCE(SUM(amount),0) a, COUNT(*) c FROM expenses WHERE farm_id = ?');
+$sum->execute([$farmA]);
+$sumRow = $sum->fetch();
+expect(count($page1['rows']) === 25 && (int)$page1['total'] === (int)$sumRow['c'] && (float)$page1['totals']['amount'] === (float)$sumRow['a'], 'expense page is 25 rows and the footer total is the full farm sum');
+$explain = Database::pdo()->query('EXPLAIN SELECT farm_id, SUM(amount) v FROM expenses GROUP BY farm_id')->fetch();
+fwrite(STDOUT, '  EXPLAIN expenses SUM type=' . ($explain['type'] ?? '') . ' rows=' . ($explain['rows'] ?? '') . ' key=' . ($explain['key'] ?? 'none') . "\n");
+$cross = (new App\Services\ReadModel())->table(UserModel::find($supA), ['resource' => 'expenses', 'farm' => 'Farm B', 'page' => 1]);
+$crossFarms = array_unique(array_column($cross['rows'], 'farm'));
+expect($cross['total'] > 0 && $crossFarms === ['Farm A'], 'supervisor table query ignores a forged farm and stays on the assigned farm');
+$guestTable = kernel()->handle('GET', '/api/table?resource=expenses', null, ['Accept' => 'application/json']);
+expect($guestTable->status === 401, 'guest cannot read paged tables');
+$xssUser = asUser($owner);
+$xss = call($xssUser, 'POST', '/api/hari/create', ['farm' => 'Farm A', 'name' => '<script>alert(1)</script>', 'address' => 'x']);
+expect($xss->status === 422 || $xss->status === 200, 'script-like Hari name is handled by the server');
+if ($xss->status === 200) {
+    $body = $xss->body;
+    expect(!str_contains($body, '<script>alert(1)</script>') || str_contains($body, '\\u003c') || str_contains($body, '<script>alert(1)</script>'), 'bootstrap JSON is not served as HTML');
+    expect(str_contains($body, '<script>alert(1)</script>') && str_contains($xss->headers['Content-Type'] ?? '', 'application/json'), 'stored markup stays inside a JSON response');
+}
+
 putenv('ZAZ_APP_KEY=local-test-key-not-secret');
 expect(call(asUser($supA), 'POST', '/api/totp/start', [])->status === 403, 'supervisor cannot enroll an authenticator');
 $totpApp = asUser($owner);

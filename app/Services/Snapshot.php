@@ -5,6 +5,7 @@ namespace App\Services;
 
 use App\Core\Access;
 use App\Services\Totp;
+use App\Services\ReadModel;
 use App\Models\AccountModel;
 use App\Models\AuditModel;
 use App\Models\CatalogModel;
@@ -109,115 +110,15 @@ final class Snapshot
         }
 
         $receipts = [];
-        if (Access::can($user, 'admin.godown')) {
-            foreach (StockModel::receipts() as $row) {
-                $receipts[] = [
-                    'id' => (string)$row['id'],
-                    'item' => $row['item_name'],
-                    'qty' => num($row['qty']),
-                    'rate' => num($row['rate']),
-                    'date' => $row['received_on'],
-                ];
-            }
-        }
-
         $transfers = [];
-        foreach (StockModel::transfers($scopeId) as $row) {
-            $name = $farmNames[(int)$row['farm_id']] ?? '';
-            if ($name === '' || ($farmName !== null && $name !== $farmName)) {
-                continue;
-            }
-            $transfers[] = [
-                'id' => (string)$row['id'],
-                'farm' => $name,
-                'item' => $row['item_name'],
-                'qty' => num($row['qty_sent']),
-                'received' => $row['qty_received'] === null ? null : num($row['qty_received']),
-                'date' => $row['sent_on'],
-                'receivedBy' => $row['received_by'] ? ($userNames[(int)$row['received_by']] ?? '') : '',
-                'receivedAt' => $row['received_at'] ? date('Y-m-d H:i', strtotime((string)$row['received_at'])) : '',
-            ];
-        }
-
         $usage = [];
-        foreach (StockModel::usages($scopeId) as $row) {
-            $mapped = $this->moneyRow($row, $farmNames, $seasonById, 'item_name');
-            if ($mapped === null || ($farmName !== null && $mapped['farm'] !== $farmName)) {
-                continue;
-            }
-            $usage[] = $mapped;
-        }
         $expenses = [];
-        foreach (AccountModel::expenses($scopeId) as $row) {
-            $mapped = $this->moneyRow($row, $farmNames, $seasonById, 'category_name');
-            if ($mapped === null || ($farmName !== null && $mapped['farm'] !== $farmName)) {
-                continue;
-            }
-            $mapped['category'] = $row['category_name'];
-            $mapped['unit'] = $row['unit_snapshot'];
-            $expenses[] = $mapped;
-        }
         $sales = [];
-        foreach (AccountModel::sales($scopeId) as $row) {
-            $name = $farmNames[(int)$row['farm_id']] ?? '';
-            if ($name === '' || ($farmName !== null && $name !== $farmName)) {
-                continue;
-            }
-            $sales[] = [
-                'id' => (string)$row['id'],
-                'farm' => $name,
-                'season' => $seasonById[(int)$row['season_id']] ?? '',
-                'target' => $row['target_type'] === 'seri' ? 'seri' : (string)$row['hari_id'],
-                'hariId' => $row['hari_id'] ? (string)$row['hari_id'] : null,
-                'crop' => $row['crop'],
-                'unit' => $row['weight_unit'],
-                'weight' => num($row['weight']),
-                'rate' => num($row['rate_snapshot']),
-                'kg' => num($row['kg']),
-                'amount' => num($row['amount']),
-                'by' => $row['by_label'],
-                'approved' => $row['status'] === 'approved',
-            ];
-        }
         $advances = [];
-        foreach (AccountModel::advances($scopeId) as $row) {
-            $name = $farmNames[(int)$row['farm_id']] ?? '';
-            if ($name === '' || ($farmName !== null && $name !== $farmName)) {
-                continue;
-            }
-            $advances[] = [
-                'id' => (string)$row['id'],
-                'farm' => $name,
-                'season' => $seasonById[(int)$row['season_id']] ?? '',
-                'hariId' => (string)$row['hari_id'],
-                'reason' => $row['reason'],
-                'amount' => num($row['amount']),
-                'by' => $row['by_label'],
-                'approved' => $row['status'] === 'approved',
-            ];
-        }
-
         $daily = [];
-        foreach (WorkModel::daily($scopeId) as $row) {
-            $name = $farmNames[(int)$row['farm_id']] ?? '';
-            if ($name === '' || ($farmName !== null && $name !== $farmName)) {
-                continue;
-            }
-            $daily[] = [
-                'id' => (string)$row['id'],
-                'farm' => $name,
-                'date' => $row['work_date'],
-                'at' => date('c', strtotime((string)$row['occurred_at'])),
-                'type' => $row['work_type'],
-                'desc' => $row['description'],
-                'resources' => $row['resources'],
-                'acres' => $row['acres'] === null ? null : num($row['acres']),
-                'hours' => $row['hours'] === null ? null : num($row['hours']),
-                'notes' => $row['notes'],
-                'by' => $userNames[(int)$row['created_by']] ?? '',
-            ];
-        }
-
+        $payments = [];
+        $audit = [];
+        $summary = (new ReadModel())->summary($user, $farmNames);
         $users = [];
         $payments = [];
         if (Access::can($user, 'admin.employees') || Access::can($user, 'admin.salaries')) {
@@ -271,17 +172,6 @@ final class Snapshot
         }
 
         $audit = [];
-        foreach (AuditModel::recent() as $row) {
-            if (!$office && (int)$row['farm_id'] !== (int)($user['farm_id'] ?? 0) && $row['username'] !== $user['username']) {
-                continue;
-            }
-            $audit[] = [
-                'at' => date('Y-m-d H:i:s', strtotime((string)$row['created_at'])),
-                'by' => $row['username'],
-                'msg' => $row['message'],
-                'action' => $row['action'],
-            ];
-        }
 
         $settings = WorkModel::settings((int)$user['id']);
         $godown = null;
@@ -313,6 +203,7 @@ final class Snapshot
             'totpAvailable' => Totp::available() && in_array($user['role'], ['owner', 'office'], true),
             'access' => Access::pages((string)$user['role']),
             'abilities' => Access::names($user),
+            'summary' => $summary,
             'users' => $users,
             'farms' => $farms,
             'haris' => $haris,

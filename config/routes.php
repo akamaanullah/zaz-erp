@@ -16,6 +16,8 @@ return static function (Router $router): void {
     $router->post('/logout', [AuthController::class, 'logout'], ['auth', 'csrf']);
 
     $router->get('/api/bootstrap', [ApiController::class, 'bootstrap'], ['auth']);
+    $router->get('/api/table', [ApiController::class, 'table'], ['auth']);
+    $router->get('/api/ledger', [ApiController::class, 'ledger'], ['auth']);
     $router->get('/api/backup', [ApiController::class, 'backup'], ['auth']);
     $router->post('/api/{action:.+}', [ApiController::class, 'post'], ['auth', 'csrf']);
 

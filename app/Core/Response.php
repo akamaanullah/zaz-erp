@@ -34,6 +34,18 @@ final class Response
     public function send(): void
     {
         http_response_code($this->status);
+        $security = [
+            'X-Content-Type-Options' => 'nosniff',
+            'X-Frame-Options' => 'SAMEORIGIN',
+            'Referrer-Policy' => 'strict-origin-when-cross-origin',
+            'Permissions-Policy' => 'camera=(), microphone=(), geolocation=()',
+            'Content-Security-Policy' => "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'self'; form-action 'self'",
+        ];
+        foreach ($security as $name => $value) {
+            if (!array_key_exists($name, $this->headers)) {
+                header($name . ': ' . $value);
+            }
+        }
         foreach ($this->headers as $name => $value) {
             header($name . ': ' . $value);
         }

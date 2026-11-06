@@ -189,12 +189,35 @@ final class OfficeOps
     {
         Access::assert($user, 'admin.backup');
         $snap = (new Snapshot())->forUser($user);
-        unset($snap['me'], $snap['access'], $snap['abilities'], $snap['settings']);
+        unset($snap['me'], $snap['access'], $snap['abilities'], $snap['settings'], $snap['summary']);
+        $reader = new ReadModel();
+        foreach (['usage', 'expenses', 'sales', 'advances', 'transfers', 'receipts', 'daily'] as $resource) {
+            $key = $resource === 'daily' ? 'dailyWork' : $resource;
+            $snap[$key] = $this->exportRows($reader, $user, $resource);
+        }
         return [
             'format' => 'zaz-erp-mvc-1',
             'exportedAt' => date('c'),
             'db' => $snap,
         ];
+    }
+
+    /** @return list<array<string, mixed>> */
+    private function exportRows(ReadModel $reader, array $user, string $resource): array
+    {
+        $page = 1;
+        $rows = [];
+        do {
+            $pack = $reader->table($user, ['resource' => $resource, 'page' => $page, 'per' => 50]);
+            if ($pack['total'] > 5000) {
+                throw new HttpException(422, 'Backup has too many rows');
+            }
+            foreach ($pack['rows'] as $row) {
+                $rows[] = $row;
+            }
+            $page++;
+        } while (count($rows) < $pack['total'] && $page < 120);
+        return $rows;
     }
 
     public function import(array $user, array $in): void

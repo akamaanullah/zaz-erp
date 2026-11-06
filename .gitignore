@@ -9,5 +9,7 @@
 /storage/tmp-browser*/
 /storage/screenshots/
 /vendor/
+/node_modules/
+/tests/e2e/node_modules/
 .DS_Store
 Thumbs.db
