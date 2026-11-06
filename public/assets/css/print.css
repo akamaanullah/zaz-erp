@@ -1,0 +1,13 @@
+#printview{display:none}
+.doc{font-family:var(--font);color:#111;background:#fff;padding:8px}.doc h2{text-align:center;margin-bottom:6px}.doc .doc-head{display:flex;justify-content:space-between;align-items:center;border-bottom:2px solid #1b2a5c;padding-bottom:10px;margin-bottom:12px}
+.doc .doc-head img{height:54px}.doc table{width:100%;border-collapse:collapse;margin:6px 0 14px;font-size:12.5px}.doc th,.doc td{border:1px solid #bbb;padding:6px 8px}.doc th{background:#f1efe6;color:#111;text-transform:none;letter-spacing:0;font-size:12.5px}
+.doc h3{margin:14px 0 4px;font-size:15px;color:#0f1a3d}.doc .sign{display:flex;justify-content:space-between;gap:30px;margin-top:44px}.doc .sign div{flex:1;border-top:1px solid #333;padding-top:6px;text-align:center;font-size:13px}
+.doc.rtl{font-family:var(--font-rtl)}
+@media print{
+ @page{margin:12mm}
+ body{background:#fff!important}
+ body.printing .app,body.printing .toasts,body.printing .modal-back{display:none!important}
+ body.printing #printview{display:block!important}
+ body:not(.printing) .sidebar,body:not(.printing) .topbar,body:not(.printing) .no-print,body:not(.printing) .toolbar,body:not(.printing) .btn{display:none!important}
+ body:not(.printing) .app{display:block}.card{box-shadow:none;border-color:#ccc;break-inside:avoid}
+}

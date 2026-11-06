@@ -1,0 +1,7 @@
+# Keep application code, configuration, and storage off the web.
+# The static prototype remains available for reference.
+RewriteEngine On
+RewriteRule ^(app|config|database|storage|tests)(/|$) - [F,L]
+RewriteRule ^prototype/ - [L]
+RewriteRule ^public/ - [L]
+RewriteRule ^(.*)$ public/$1 [L]

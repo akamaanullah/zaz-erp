@@ -1,0 +1,14 @@
+/config/config.local.php
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/cache/*
+!/storage/cache/.gitkeep
+/storage/sessions/*
+!/storage/sessions/.gitkeep
+/storage/dev-credentials.local.txt
+/storage/tmp-browser/
+/storage/tmp-browser-mvc/
+/storage/screenshots/
+/vendor/
+.DS_Store
+Thumbs.db
