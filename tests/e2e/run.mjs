@@ -16,6 +16,7 @@ const suites = [
   'suites/03-ledger.mjs',
   'suites/04-access.mjs',
   'suites/05-paging.mjs',
+  'suites/06-season.mjs',
 ];
 const password = randomBytes(18).toString('base64url');
 remember(password);

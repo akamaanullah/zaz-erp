@@ -119,6 +119,15 @@ final class Kernel
 
     private function wantsJson(string $uri): bool
     {
+        $type = (string)($_SERVER['CONTENT_TYPE'] ?? '');
+        $accept = (string)($_SERVER['HTTP_ACCEPT'] ?? '');
+        if (str_contains($accept, 'application/json')) {
+            return true;
+        }
+        if ((str_contains($type, 'application/x-www-form-urlencoded') || str_contains($type, 'multipart/form-data'))
+            && !str_contains($accept, 'application/json')) {
+            return false;
+        }
         return str_contains($uri, '/api/');
     }
 
@@ -129,6 +138,10 @@ final class Kernel
         }
         if ($json) {
             return Response::json(['ok' => false, 'error' => $message], $status);
+        }
+        if ($status >= 400 && $status < 500 && !empty($_SERVER['HTTP_REFERER'])) {
+            Session::flash('error', $message);
+            return Response::redirect((string)$_SERVER['HTTP_REFERER']);
         }
         $base = $this->basePath();
         $html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'

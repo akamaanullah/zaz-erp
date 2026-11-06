@@ -177,8 +177,8 @@ final class OfficeOps
     public function prefs(array $user, array $in): void
     {
         Access::assert($user, 'settings.prefs');
-        $theme = (string)($in['theme'] ?? 'light');
-        $language = (string)($in['language'] ?? 'en');
+        $theme = (string)($in['theme'] ?? $in['mode'] ?? 'light');
+        $language = (string)($in['language'] ?? $in['lang'] ?? 'en');
         if (!in_array($theme, ['light', 'dark'], true) || !in_array($language, ['en', 'ur', 'sd'], true)) {
             throw new HttpException(422, 'Invalid preference');
         }

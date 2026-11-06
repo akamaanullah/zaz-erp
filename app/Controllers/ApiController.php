@@ -7,6 +7,7 @@ use App\Core\Controller;
 use App\Core\HttpException;
 use App\Core\Request;
 use App\Core\Response;
+use App\Core\Session;
 use App\Services\AccountOps;
 use App\Services\FarmOps;
 use App\Services\OfficeOps;
@@ -52,6 +53,17 @@ final class ApiController extends Controller
         $action = (string)($request->params['action'] ?? '');
         $user = $this->user();
         $in = $request->json ?: $request->post;
+        foreach ([
+            'Item' => 'item', 'Quantity' => 'qty', 'Rate' => 'rate', 'Farm' => 'farm',
+            'Target' => 'target', 'Crop' => 'crop', 'Qty' => 'qty', 'Category' => 'category',
+            'Weight' => 'weight', 'Unit' => 'unit', 'Hari' => 'hariId', 'Reason' => 'reason',
+            'Amount' => 'amount', 'Name' => 'name', 'Address' => 'address', 'Acres' => 'acres',
+            'Season' => 'season', 'Share' => 'share', 'q' => 'qty',
+        ] as $from => $to) {
+            if (array_key_exists($from, $in) && !array_key_exists($to, $in)) {
+                $in[$to] = $in[$from];
+            }
+        }
         $extra = [];
         switch ($action) {
             case 'farms/save':
@@ -151,6 +163,14 @@ final class ApiController extends Controller
                 throw new HttpException(404, 'Unknown action');
         }
         $fresh = $this->kernel->authUser() ?? $user;
+        $notice = isset($extra['temporaryPassword']) && $extra['temporaryPassword'] !== ''
+            ? 'Employee added. One-time password: ' . $extra['temporaryPassword']
+            : 'Saved';
+        Session::flash('ok', $notice);
+        if (!$request->wantsJson() && $request->post !== []) {
+            $back = (string)($_SERVER['HTTP_REFERER'] ?? ($this->kernel->basePath() . '/dashboard'));
+            return Response::redirect($back);
+        }
         return $this->json(['ok' => true, 'db' => (new Snapshot())->forUser($fresh)] + $extra);
     }
 }

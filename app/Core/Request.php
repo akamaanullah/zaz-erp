@@ -110,8 +110,14 @@ final class Request
 
     public function wantsJson(): bool
     {
+        $type = $this->header('Content-Type');
+        $accept = $this->header('Accept');
+        if ((str_contains($type, 'application/x-www-form-urlencoded') || str_contains($type, 'multipart/form-data'))
+            && !str_contains($accept, 'application/json')) {
+            return false;
+        }
         return str_starts_with($this->path, '/api')
-            || str_contains($this->header('Accept'), 'application/json')
-            || str_contains($this->header('Content-Type'), 'application/json');
+            || str_contains($accept, 'application/json')
+            || str_contains($type, 'application/json');
     }
 }

@@ -20,6 +20,17 @@ function num(mixed $value): float
     return round((float)$value, 2);
 }
 
+function rs(mixed $value): string
+{
+    return 'Rs ' . number_format(num($value), 2, '.', ',');
+}
+
+function zaz_q(array $query, array $extra): string
+{
+    unset($query['export']);
+    return '?' . http_build_query(array_merge($query, $extra));
+}
+
 function money_mul(float $a, float $b): float
 {
     return round($a * $b, 2);

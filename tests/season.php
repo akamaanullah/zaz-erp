@@ -10,7 +10,10 @@ require dirname(__DIR__) . '/app/Core/Autoload.php';
 App\Core\Autoload::register();
 require dirname(__DIR__) . '/database/migrate.php';
 
+use App\Core\Csrf;
 use App\Core\Database;
+use App\Core\Kernel;
+use App\Core\Session;
 use App\Models\FarmModel;
 use App\Models\HariModel;
 use App\Models\SeasonModel;
@@ -62,5 +65,39 @@ $ok = (float)$k['totals']['amount'] === 10.0
     && (float)$kLedger['gross'] === 50.0
     && (float)$rLedger['gross'] === 0.0
     && $forged['total'] === 0;
+$pdo->prepare('UPDATE haris SET name = ? WHERE id = ?')->execute(['Ali <b>x</b>', $hari]);
+Session::resetTest();
+Database::reset();
+$app = new Kernel();
+$app->actingAs($owner);
+$dash = $app->handle('GET', '/dashboard?season=' . rawurlencode('Kharif 2026'));
+$expenses = $app->handle('GET', '/expenses?farm=' . rawurlencode('Farm A') . '&season=' . rawurlencode('Kharif 2026'));
+$hariPage = $app->handle('GET', '/hari?farm=' . rawurlencode('Farm A'));
+$json = $app->handle('POST', '/api/settings/prefs', json_encode(['theme' => 'dark', 'language' => 'en']), [
+    'Accept' => 'application/json', 'Content-Type' => 'application/json', 'X-CSRF-Token' => Csrf::token(),
+]);
+$form = $app->handle('POST', '/api/settings/prefs', http_build_query([
+    'theme' => 'light', 'language' => 'en', '_csrf' => Csrf::token(),
+]), ['Content-Type' => 'application/x-www-form-urlencoded', 'Accept' => 'text/html', 'Referer' => '/settings']);
+$dashHtml = $dash->body;
+$expenseHtml = $expenses->body;
+$hariHtml = $hariPage->body;
+$checks = [
+    'dash' => $dash->status === 200,
+    'h1' => str_contains($dashHtml, '<h1'),
+    'farm' => str_contains($dashHtml, 'Farm A'),
+    'no-pages' => !str_contains($dashHtml, 'assets/js/pages/'),
+    'no-store' => !str_contains($dashHtml, 'store.js'),
+    'no-appjs' => !str_contains($dashHtml, '/assets/js/app.js'),
+    'kharif' => str_contains($expenseHtml, 'KharifCrop'),
+    'no-rabi' => !str_contains($expenseHtml, 'RabiCrop'),
+    'escape' => str_contains($hariHtml, 'Ali &lt;b&gt;x&lt;/b&gt;'),
+    'no-raw' => !str_contains($hariHtml, '<b>x</b>'),
+    'json' => $json->status === 200 && str_contains($json->headers['Content-Type'] ?? '', 'application/json'),
+    'form' => $form->status === 302,
+    'exp-status' => $expenses->status === 200,
+    'hari-status' => $hariPage->status === 200,
+];
+$ok = $ok && !in_array(false, $checks, true);
 fwrite(STDOUT, $ok ? "season scope passed\n" : "season scope failed\n");
 exit($ok ? 0 : 1);

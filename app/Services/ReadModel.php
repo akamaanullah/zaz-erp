@@ -479,8 +479,18 @@ final class ReadModel
             ]];
         }
         if ($resource === 'daily') {
-            $sql = 'SELECT x.*, f.name farm_name, u.username FROM daily_work x JOIN farms f ON f.id = x.farm_id JOIN users u ON u.id = x.created_by WHERE 1=1' . $farmSql . $ord;
-            $count = 'SELECT COUNT(*) c FROM daily_work x WHERE 1=1' . $farmSql;
+            $dailySql = '';
+            $range = (string)($query['range'] ?? '');
+            $day = (string)($query['date'] ?? '');
+            if ($range === '24h') {
+                $dailySql = ' AND x.occurred_at >= ?';
+                $params[] = date('Y-m-d H:i:s', time() - 86400);
+            } elseif ($range === 'date' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+                $dailySql = ' AND x.work_date = ?';
+                $params[] = $day;
+            }
+            $sql = 'SELECT x.*, f.name farm_name, u.username FROM daily_work x JOIN farms f ON f.id = x.farm_id JOIN users u ON u.id = x.created_by WHERE 1=1' . $farmSql . $dailySql . $ord;
+            $count = 'SELECT COUNT(*) c FROM daily_work x WHERE 1=1' . $farmSql . $dailySql;
             return [$sql, $count, $params, fn (array $row): array => [
                 'id' => (string)$row['id'], 'farm' => $row['farm_name'], 'date' => $row['work_date'],
                 'at' => date('c', strtotime((string)$row['occurred_at'])), 'type' => $row['work_type'],

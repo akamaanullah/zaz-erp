@@ -2,6 +2,8 @@
 
 Yeh local app ka asal flow hai. Numbers neeche **example** hain, live database ki current balances nahi.
 
+Har screen ka table aur form pehle PHP response mein aata hai. `PageController` farm, season, aur page data tayyar karta hai. `views/layouts/app.php` sidebar aur top bar rakhta hai, aur `views/screens/` wali file us screen ka HTML likhti hai. Save ab bhi `POST /api/...` par hai. JavaScript sirf dialog kholta hai, chart banata hai, aur form ko JSON ke sath bhejta hai. Purana `views/pages/app.php` shell, jo poori screen `public/assets/js/pages/*.js` se banata tha, hata diya gaya hai. Woh page scripts response mein load nahi hoti.
+
 Sign-in: `http://localhost/zaz-agriculture/public/login`  
 Username aur password. Koi account list nahi. Role aur farm server account se aata hai. Sab roles `/dashboard` par jaate hain, lekin data apni scope ka hota hai.
 

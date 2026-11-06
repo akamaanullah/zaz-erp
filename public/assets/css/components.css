@@ -33,6 +33,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}td small{color:
 .table-meta{font-size:12.5px;color:var(--muted);margin-top:8px}
 .empty{text-align:center;padding:34px 16px;color:var(--muted)}.empty svg{width:46px;height:46px;color:var(--primary-100);margin-bottom:6px}.empty b{display:block;color:var(--text);font-size:15px;margin-bottom:2px}
 .modal-back{position:fixed;inset:0;background:rgba(6,10,26,.5);display:grid;place-items:center;z-index:100;padding:16px;animation:fade .15s}
+.modal-back[hidden]{display:none !important}
+th.sortable a{display:block;color:inherit;text-decoration:none}
 .modal{background:var(--surface);border-radius:18px;box-shadow:var(--shadow-lg);width:min(600px,100%);max-height:92vh;overflow:auto;animation:pop .18s}
 .modal header{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--border)}.modal header h3{font-size:17px}
 .modal .body{padding:20px 22px}.modal footer{display:flex;gap:10px;justify-content:flex-end;padding:14px 22px;border-top:1px solid var(--border);background:var(--surface-2)}
